@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  /* ── Markdown tables ── */
+  .prose table {
+    @apply w-full border-collapse text-sm my-4;
+  }
+  .prose thead {
+    @apply bg-indigo-50;
+  }
+  .prose th {
+    @apply px-4 py-2.5 text-left font-semibold text-indigo-800 border border-indigo-100 text-xs uppercase tracking-wide;
+  }
+  .prose td {
+    @apply px-4 py-2.5 border border-gray-100 text-gray-700;
+  }
+  .prose tbody tr:nth-child(even) {
+    @apply bg-gray-50;
+  }
+  .prose tbody tr:hover {
+    @apply bg-indigo-50/40;
+  }
+
+  /* ── Headings ── */
+  .prose h1 {
+    @apply text-2xl font-bold text-gray-900 mt-8 mb-3;
+  }
+  .prose h2 {
+    @apply text-lg font-bold text-indigo-700 mt-7 mb-3 pb-2 border-b border-indigo-100;
+  }
+  .prose h3 {
+    @apply text-base font-semibold text-gray-800 mt-5 mb-2;
+  }
+
+  /* ── Body text ── */
+  .prose p {
+    @apply text-gray-700 leading-relaxed mb-3;
+  }
+  .prose ul {
+    @apply list-disc list-inside text-gray-700 space-y-1.5 mb-3 ml-2;
+  }
+  .prose ol {
+    @apply list-decimal list-inside text-gray-700 space-y-1.5 mb-3 ml-2;
+  }
+  .prose li {
+    @apply text-gray-700 leading-relaxed;
+  }
+  .prose strong {
+    @apply text-gray-900 font-semibold;
+  }
+  .prose code {
+    @apply bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded text-sm font-mono;
+  }
+  .prose blockquote {
+    @apply border-l-4 border-indigo-400 pl-4 italic text-gray-500 my-3;
+  }
+  .prose hr {
+    @apply border-gray-200 my-6;
+  }
+  .prose em {
+    @apply text-gray-500 text-sm;
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-white border border-gray-200 rounded-xl shadow-sm;
+  }
+  .card-header {
+    @apply px-6 py-4 border-b border-gray-100 flex items-center gap-2;
+  }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    @apply bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors text-sm;
+  }
+  .btn-secondary {
+    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium px-4 py-2 rounded-lg border border-gray-200 transition-colors text-sm;
+  }
+
+  /* ── Agent status pulse ── */
+  .pulse-running {
+    animation: pulse-indigo 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-indigo {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+  }
+}
+
+/* Print styles for PDF export */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+  .card { border: 1px solid #e5e7eb; box-shadow: none; }
+}
