@@ -47,20 +47,20 @@ export default function Blueprint() {
   const visibleSections = AGENT_ORDER.filter(k => agentOutputs[k])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-slate-50">
       {/* ── Left sidebar ── */}
       <AgentProgress statuses={agentStatuses} />
 
       {/* ── Main area ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <div className="bg-white border-b border-gray-100 px-5 py-2.5 flex items-center justify-between shrink-0">
+        <div className="bg-white/80 backdrop-blur border-b border-slate-100 px-5 py-2.5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <Link to="/" className="text-xs text-gray-400 hover:text-indigo-600 transition-colors flex items-center gap-1">
-              ← New blueprint
+            <Link to="/" className="btn-ghost">
+              <span aria-hidden>←</span> New blueprint
             </Link>
-            <span className="text-gray-200">|</span>
-            <span className="text-xs font-mono text-gray-400 hidden sm:block">{id?.slice(0, 8)}...</span>
+            <span className="text-slate-200">|</span>
+            <span className="text-xs font-mono text-slate-400 hidden sm:block">{id?.slice(0, 8)}…</span>
           </div>
           <div className="flex items-center gap-3">
             {isComplete && !error && (
@@ -69,8 +69,8 @@ export default function Blueprint() {
                   onClick={() => setShowChat(c => !c)}
                   className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
                     showChat
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'
+                      ? 'bg-brand-gradient text-white border-transparent shadow-glow-brand'
+                      : 'bg-white text-brand-600 border-brand-200 hover:bg-brand-50'
                   }`}
                 >
                   💬 {showChat ? 'Hide chat' : 'Ask advisor'}
@@ -82,9 +82,9 @@ export default function Blueprint() {
               </>
             )}
             {!isComplete && !error && (
-              <span className="text-xs text-indigo-600 font-medium flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
-                Agents running...
+              <span className="text-xs font-medium flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-pulse" />
+                <span className="shimmer-text">Agents running…</span>
               </span>
             )}
             {error && <span className="text-xs text-red-500 font-medium">Pipeline error</span>}
@@ -110,12 +110,12 @@ export default function Blueprint() {
                 {visibleSections.map(key => {
                   const isFinal = key === 'report_synthesizer'
                   return (
-                    <div key={key} className={`card overflow-hidden ${isFinal ? 'ring-2 ring-indigo-200' : ''}`}>
+                    <div key={key} className={`overflow-hidden animate-fade-up ${isFinal ? 'card-highlight' : 'card'}`}>
                       <div className="card-header">
-                        <span className={`text-sm font-semibold ${isFinal ? 'text-indigo-800' : 'text-indigo-700'}`}>
+                        <span className={`font-display text-sm font-bold tracking-tight ${isFinal ? 'text-gradient' : 'text-brand-700'}`}>
                           {AGENT_LABELS[key] ?? key}
                         </span>
-                        <span className="ml-auto text-xs text-emerald-600 font-medium">Done ✓</span>
+                        <span className="ml-auto chip-success !py-0.5 !text-[11px]">Done ✓</span>
                       </div>
                       <div className={isFinal ? 'px-6 py-6 sm:px-8' : 'px-6 py-4'}>
                         <ReportRenderer content={agentOutputs[key]} isFinalReport={isFinal && isComplete} />
@@ -127,8 +127,8 @@ export default function Blueprint() {
                 {/* Spinner while next agent runs */}
                 {!isComplete && (
                   <div className="card px-6 py-4 flex items-center gap-3">
-                    <span className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin shrink-0" />
-                    <span className="text-sm text-gray-500">Next agent is running...</span>
+                    <span className="w-4 h-4 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin shrink-0" />
+                    <span className="text-sm shimmer-text">Next agent is running…</span>
                   </div>
                 )}
               </div>
@@ -136,12 +136,15 @@ export default function Blueprint() {
 
             {/* Empty state — shown only before any agent completes */}
             {visibleSections.length === 0 && !error && (
-              <div className="max-w-xl mx-auto text-center py-24">
-                <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4">⚡</div>
-                <h2 className="text-lg font-semibold text-gray-800 mb-2">Analysis in progress</h2>
-                <p className="text-gray-400 text-sm leading-relaxed">
+              <div className="max-w-xl mx-auto text-center py-24 animate-fade-up">
+                <div className="relative w-20 h-20 mx-auto mb-5">
+                  <div className="absolute inset-0 bg-brand-gradient rounded-2xl rotate-6 opacity-20 blur-xl" />
+                  <div className="relative w-full h-full bg-brand-gradient rounded-2xl flex items-center justify-center text-3xl shadow-glow-brand">⚡</div>
+                </div>
+                <h2 className="font-display text-xl font-bold text-ink mb-2 tracking-tight">Analysis in progress</h2>
+                <p className="text-slate-500 text-sm leading-relaxed">
                   8 AI agents are analyzing your business idea.<br />
-                  Market, Legal & Location agents run in parallel.<br />
+                  <span className="text-gold-600 font-medium">Market, Legal &amp; Location</span> agents run in parallel.<br />
                   First results appear in ~15 seconds.
                 </p>
               </div>

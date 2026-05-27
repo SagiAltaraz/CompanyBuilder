@@ -3,96 +3,179 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-gray-50 text-gray-900 antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+  html {
+    scroll-behavior: smooth;
   }
+  body {
+    @apply bg-slate-50 text-ink antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    @apply bg-brand-200 text-ink;
+  }
+
+  /* Refined scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-200 rounded-full border-2 border-solid border-transparent bg-clip-padding;
+  }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-slate-300; }
 }
 
 @layer components {
+  /* ── Brand mark ── */
+  .brand-mark {
+    @apply relative w-9 h-9 rounded-xl bg-brand-gradient shadow-glow-brand flex items-center justify-center font-display font-extrabold text-white text-base;
+  }
+  .brand-mark::after {
+    content: '';
+    @apply absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-gold-400 ring-2 ring-white;
+  }
+
+  /* ── Gradient text ── */
+  .text-gradient {
+    @apply bg-brand-gradient bg-clip-text text-transparent;
+  }
+  .text-gradient-gold {
+    @apply bg-gold-gradient bg-clip-text text-transparent;
+  }
+
+  /* ── Background motifs ── */
+  .bg-blueprint {
+    background-image:
+      linear-gradient(to right, rgba(79,70,229,0.07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(79,70,229,0.07) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+  .bg-mesh {
+    background:
+      radial-gradient(60% 60% at 12% 8%,  rgba(124, 58, 237, 0.18) 0%, transparent 60%),
+      radial-gradient(50% 50% at 92% 15%, rgba(251, 191, 36, 0.16) 0%, transparent 60%),
+      radial-gradient(70% 60% at 82% 90%, rgba(79, 70, 229, 0.18) 0%, transparent 60%),
+      #F8FAFF;
+  }
+
+  /* ── Floating decorative blobs ── */
+  .blob {
+    @apply pointer-events-none absolute rounded-full mix-blend-multiply blur-3xl opacity-50;
+  }
+
   /* ── Markdown tables ── */
   .prose table {
-    @apply w-full border-collapse text-sm my-4;
+    @apply w-full border-collapse text-sm my-4 overflow-hidden rounded-lg;
   }
   .prose thead {
-    @apply bg-indigo-50;
+    @apply bg-brand-50;
   }
   .prose th {
-    @apply px-4 py-2.5 text-left font-semibold text-indigo-800 border border-indigo-100 text-xs uppercase tracking-wide;
+    @apply px-4 py-2.5 text-left font-semibold text-brand-800 border border-brand-100 text-xs uppercase tracking-wide;
   }
   .prose td {
-    @apply px-4 py-2.5 border border-gray-100 text-gray-700;
+    @apply px-4 py-2.5 border border-slate-100 text-slate-700;
   }
   .prose tbody tr:nth-child(even) {
-    @apply bg-gray-50;
+    @apply bg-slate-50;
   }
   .prose tbody tr:hover {
-    @apply bg-indigo-50/40;
+    @apply bg-brand-50/50 transition-colors;
   }
 
   /* ── Headings ── */
   .prose h1 {
-    @apply text-2xl font-bold text-gray-900 mt-8 mb-3;
+    @apply font-display text-2xl font-extrabold text-ink mt-8 mb-3 tracking-tight;
   }
   .prose h2 {
-    @apply text-lg font-bold text-indigo-700 mt-7 mb-3 pb-2 border-b border-indigo-100;
+    @apply font-display text-lg font-bold text-brand-700 mt-7 mb-3 pb-2 border-b border-brand-100 tracking-tight;
   }
   .prose h3 {
-    @apply text-base font-semibold text-gray-800 mt-5 mb-2;
+    @apply text-base font-semibold text-ink-soft mt-5 mb-2;
   }
 
   /* ── Body text ── */
   .prose p {
-    @apply text-gray-700 leading-relaxed mb-3;
+    @apply text-slate-700 leading-relaxed mb-3;
   }
   .prose ul {
-    @apply list-disc list-inside text-gray-700 space-y-1.5 mb-3 ml-2;
+    @apply list-disc list-inside text-slate-700 space-y-1.5 mb-3 ml-2;
   }
   .prose ol {
-    @apply list-decimal list-inside text-gray-700 space-y-1.5 mb-3 ml-2;
+    @apply list-decimal list-inside text-slate-700 space-y-1.5 mb-3 ml-2;
   }
-  .prose li {
-    @apply text-gray-700 leading-relaxed;
-  }
-  .prose strong {
-    @apply text-gray-900 font-semibold;
-  }
+  .prose li { @apply text-slate-700 leading-relaxed; }
+  .prose strong { @apply text-ink font-semibold; }
   .prose code {
-    @apply bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded text-sm font-mono;
+    @apply bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded text-sm font-mono;
   }
   .prose blockquote {
-    @apply border-l-4 border-indigo-400 pl-4 italic text-gray-500 my-3;
+    @apply border-l-4 border-gold-400 pl-4 italic text-slate-500 my-3;
   }
-  .prose hr {
-    @apply border-gray-200 my-6;
-  }
-  .prose em {
-    @apply text-gray-500 text-sm;
-  }
+  .prose hr { @apply border-slate-200 my-6; }
+  .prose em { @apply text-slate-500 text-sm; }
 
   /* ── Cards ── */
   .card {
-    @apply bg-white border border-gray-200 rounded-xl shadow-sm;
+    @apply bg-white border border-slate-200/70 rounded-2xl shadow-lift;
   }
   .card-header {
-    @apply px-6 py-4 border-b border-gray-100 flex items-center gap-2;
+    @apply px-6 py-4 border-b border-slate-100 flex items-center gap-2;
+  }
+  .card-highlight {
+    @apply relative bg-white rounded-2xl shadow-glow-brand;
+    background-image: linear-gradient(white, white),
+      linear-gradient(135deg, #4F46E5, #7C3AED, #FBBF24);
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    border: 1.5px solid transparent;
   }
 
   /* ── Buttons ── */
   .btn-primary {
-    @apply bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors text-sm;
+    @apply relative inline-flex items-center justify-center gap-2 bg-brand-gradient hover:brightness-110 text-white font-semibold px-5 py-2.5 rounded-xl transition-all text-sm shadow-glow-brand active:scale-[0.98];
   }
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium px-4 py-2 rounded-lg border border-gray-200 transition-colors text-sm;
+    @apply inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-ink-soft font-medium px-4 py-2 rounded-xl border border-slate-200 transition-colors text-sm;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1 text-slate-500 hover:text-brand-600 text-xs font-medium transition-colors;
+  }
+
+  /* ── Chips / Pills ── */
+  .chip {
+    @apply inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-all;
+  }
+  .chip-brand {
+    @apply chip bg-brand-50 text-brand-700 border-brand-100;
+  }
+  .chip-gold {
+    @apply chip bg-gold-400/10 text-gold-600 border-gold-400/30;
+  }
+  .chip-success {
+    @apply chip bg-emerald-50 text-emerald-700 border-emerald-100;
   }
 
   /* ── Agent status pulse ── */
   .pulse-running {
-    animation: pulse-indigo 1.5s ease-in-out infinite;
+    animation: pulse-indigo 1.6s ease-in-out infinite;
   }
   @keyframes pulse-indigo {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
-    50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5); }
+    50%      { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+  }
+
+  /* Shimmer for loading text */
+  .shimmer-text {
+    background: linear-gradient(90deg, #94A3B8 0%, #0B1437 50%, #94A3B8 100%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 2.5s linear infinite;
   }
 }
 
@@ -100,5 +183,7 @@
 @media print {
   .no-print { display: none !important; }
   body { background: white; }
-  .card { border: 1px solid #e5e7eb; box-shadow: none; }
+  .card,
+  .card-highlight { border: 1px solid #e5e7eb; box-shadow: none; background: white; }
+  .bg-mesh, .bg-blueprint { background: white !important; }
 }
