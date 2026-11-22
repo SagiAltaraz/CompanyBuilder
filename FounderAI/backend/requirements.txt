@@ -2,26 +2,20 @@
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 
-# LangChain / LangGraph — let pip resolve langchain-core version
-langchain==0.2.16
-langchain-openai==0.1.25
-langgraph==0.2.55
+# LLM provider
+anthropic>=0.40.0
+
+# Graph orchestration (standalone, no langchain_openai)
+langgraph>=0.2.55
+
+# Retries
+tenacity>=8.5.0
 
 # Database
 asyncpg==0.29.0
 
-# Redis (async)
+# Redis (async pub/sub for live progress)
 redis[asyncio]==5.0.4
-
-# Kafka
-kafka-python==2.0.2
-
-# Vector store
-chromadb==0.5.23
-
-# HTTP / scraping
-requests==2.31.0
-beautifulsoup4==4.12.3
 
 # Config
 pydantic-settings==2.2.1

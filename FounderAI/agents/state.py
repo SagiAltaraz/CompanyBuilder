@@ -1,8 +1,28 @@
-from typing import Annotated, TypedDict, Optional, Dict, Any
+"""LangGraph state for the FounderAI pipeline.
+
+Every agent writes exactly one typed field; agent_statuses and metadata are
+merged across parallel nodes via `_merge_dicts`. Error is last-writer-wins so
+any parallel branch can surface a failure.
+"""
+from __future__ import annotations
+
+from typing import Annotated, Any, Optional, TypedDict
+
+from .schemas import (
+    Alternatives,
+    CriticReport,
+    FinalReport,
+    FinancialPlan,
+    LegalCompliance,
+    LocationStrategy,
+    MarketAnalysis,
+    RefinedIdea,
+    TeamPlan,
+)
 
 
 def _merge_dicts(a: dict, b: dict) -> dict:
-    """Reducer for parallel nodes: merge dicts instead of last-writer-wins."""
+    """Reducer for parallel nodes: merge instead of last-writer-wins."""
     return {**a, **b}
 
 
@@ -11,20 +31,20 @@ class FounderState(TypedDict, total=False):
     raw_input: str
     language: str
 
-    # Agent outputs — each written by exactly one node, no conflict
-    refined_idea: str
-    market_analysis: str
-    legal_compliance: str
-    location_analysis: str
-    team_structure: str
-    financial_plan: str
-    alternatives: str
-    final_report: str
+    # Typed outputs — each written by exactly one node, no conflict.
+    refined_idea: Optional[RefinedIdea]
+    market_analysis: Optional[MarketAnalysis]
+    legal_compliance: Optional[LegalCompliance]
+    location_analysis: Optional[LocationStrategy]
+    team_structure: Optional[TeamPlan]
+    financial_plan: Optional[FinancialPlan]
+    alternatives: Optional[Alternatives]
+    final_report: Optional[FinalReport]
+    critic: Optional[CriticReport]
 
     current_agent: str
-    # error uses last-writer-wins within parallel nodes; annotated to allow both writing
     error: Annotated[Optional[str], lambda a, b: b if b is not None else a]
 
-    # These are written by multiple parallel nodes — use merge reducer
-    agent_statuses: Annotated[Dict[str, str], _merge_dicts]
-    metadata: Annotated[Dict[str, Any], _merge_dicts]
+    # Written by multiple parallel nodes — merge reducer.
+    agent_statuses: Annotated[dict[str, str], _merge_dicts]
+    metadata: Annotated[dict[str, Any], _merge_dicts]

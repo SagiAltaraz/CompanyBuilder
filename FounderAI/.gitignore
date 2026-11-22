@@ -41,9 +41,10 @@ yarn-error.log*
 # Docker
 *.dockerignore
 
-# IDE
+# IDE / agent metadata
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 .DS_Store

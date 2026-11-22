@@ -141,7 +141,7 @@ FounderAI/
 ### Prerequisites
 
 - Docker Desktop
-- OpenAI API key
+- Anthropic API key (Claude)
 
 ### 1. Clone & configure
 
@@ -150,7 +150,7 @@ git clone <repo-url>
 cd CompanyBuilder/FounderAI
 
 cp .env.example .env
-# Edit .env and set OPENAI_API_KEY
+# Edit .env and set ANTHROPIC_API_KEY
 ```
 
 ### 2. Run with Docker
@@ -164,7 +164,6 @@ App URLs:
 - **Frontend:** http://localhost:3000
 - **Backend API:** http://localhost:8000
 - **API Docs:** http://localhost:8000/docs
-- **Kafka UI:** http://localhost:8080
 
 ### 3. Stop
 
@@ -188,15 +187,13 @@ make dev-frontend       # Vite dev server on :5173
 
 ## Environment Variables
 
-| Variable                  | Purpose                                | Default in Docker                |
-|---------------------------|----------------------------------------|----------------------------------|
-| `OPENAI_API_KEY`          | **Required.** OpenAI key               | —                                |
-| `POSTGRES_URL`            | Postgres connection string             | `postgresql://…@postgres:5432/…` |
-| `REDIS_URL`               | Redis connection string                | `redis://redis:6379`             |
-| `KAFKA_BOOTSTRAP_SERVERS` | Kafka brokers                          | `kafka:9092`                     |
-| `CHROMA_HOST` / `CHROMA_PORT` | ChromaDB host/port                 | `chromadb` / `8000`              |
+| Variable            | Purpose                              | Default in Docker                |
+|---------------------|--------------------------------------|----------------------------------|
+| `ANTHROPIC_API_KEY` | **Required.** Anthropic (Claude) key | —                                |
+| `POSTGRES_URL`      | Postgres connection string           | `postgresql://…@postgres:5432/…` |
+| `REDIS_URL`         | Redis connection string              | `redis://redis:6379`             |
 
-When running via `make up`, every variable except `OPENAI_API_KEY` is wired automatically by `docker-compose.yml`.
+When running via `make up`, every variable except `ANTHROPIC_API_KEY` is wired automatically by `docker-compose.yml`.
 
 ---
 
@@ -205,7 +202,8 @@ When running via `make up`, every variable except `OPENAI_API_KEY` is wired auto
 | Method | Endpoint                       | Description                          |
 |--------|--------------------------------|--------------------------------------|
 | `POST` | `/blueprints`                  | Submit a business idea, start pipeline |
-| `GET`  | `/blueprints/:id`              | Get blueprint status and report      |
+| `GET`  | `/blueprints/:id`              | Status + typed outputs + report      |
+| `POST` | `/blueprints/:id/cancel`       | Cancel an in-flight pipeline         |
 | `WS`   | `/ws/:id`                      | Live agent progress stream           |
 | `POST` | `/blueprints/:id/chat`         | Chat with AI advisor about blueprint |
 | `GET`  | `/health`                      | Health check                         |

@@ -1,31 +1,23 @@
-"""
-POST /blueprints/:id/chat
-Allows the user to ask follow-up questions about their blueprint.
-Uses the full report as context.
-"""
+"""POST /blueprints/:id/chat — follow-up Q&A over the finished blueprint."""
 from __future__ import annotations
 
 import uuid
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
+from agents.client import MODELS, get_client
 
 from ..db.postgres import get_pool
 
 router = APIRouter(prefix="/blueprints", tags=["chat"])
 
-CHAT_MODEL = "gpt-4o-mini"
-
 SYSTEM_PROMPT = (
-    "You are FounderAI, a strategic business advisor. You have already produced a comprehensive "
-    "company blueprint for the user's business. The full blueprint is provided below.\n\n"
-    "Answer the user's follow-up questions concisely and specifically — always reference concrete "
-    "numbers, names, or steps from the blueprint. If the blueprint doesn't cover something, "
-    "give your best strategic advice and say you're advising beyond the blueprint.\n"
-    "Use the same language as the user's question (Hebrew or English).\n"
-    "Format your answer clearly — use bullet points or numbered lists when listing steps.\n\n"
-    "Blueprint:\n{report}"
+    "You are FounderAI, a strategic business advisor. The user has already generated a complete "
+    "blueprint for their business, included below as reference. Answer their follow-up concisely "
+    "and specifically — quote concrete numbers, names, and steps from the blueprint when relevant. "
+    "If a question goes beyond the blueprint, give your best strategic advice and say so. "
+    "Respond in the user's language. Use short lists and tables when they help."
 )
 
 
@@ -44,17 +36,20 @@ async def chat_with_blueprint(blueprint_id: str, body: ChatRequest):
             "SELECT content FROM reports WHERE blueprint_id=$1 ORDER BY created_at DESC LIMIT 1",
             uuid.UUID(blueprint_id),
         )
-
     if not row:
         raise HTTPException(status_code=404, detail="Blueprint report not found. Run the pipeline first.")
 
-    report_text = row["content"]
-    system = SYSTEM_PROMPT.format(report=report_text[:8000])  # cap to stay in context
-
-    llm = ChatOpenAI(model=CHAT_MODEL, temperature=0.3, max_tokens=800)
-    response = await llm.ainvoke([
-        SystemMessage(content=system),
-        HumanMessage(content=body.message),
-    ])
-
-    return {"answer": response.content.strip()}
+    client = get_client()
+    resp = await client.messages.create(
+        model=MODELS["haiku"],
+        max_tokens=1024,
+        temperature=0.3,
+        system=[
+            {"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": f"Blueprint document:\n\n{row['content'][:12000]}",
+             "cache_control": {"type": "ephemeral"}},
+        ],
+        messages=[{"role": "user", "content": body.message}],
+    )
+    text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
+    return {"answer": text.strip()}

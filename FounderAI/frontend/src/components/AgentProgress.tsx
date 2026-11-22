@@ -1,125 +1,133 @@
-import React from 'react'
+/**
+ * ProgressNav — sticky sidebar that doubles as pipeline-progress tracker
+ * and table-of-contents.
+ *
+ * Shows nine agents with status icons; each row is a link that scrolls to
+ * the matching section once it's available. The active section (based on
+ * scroll position, set by the parent) gets a left-accent highlight.
+ */
 import type { AgentStatus } from '../hooks/useWebSocket'
 
-const AGENTS = [
-  { key: 'idea_refiner',           label: 'Idea Refiner',        model: 'gpt-4o-mini', icon: '💡', desc: 'Clarifies your concept' },
-  { key: 'market_analyst',         label: 'Market Analyst',      model: 'gpt-4o-mini', icon: '📊', desc: 'TAM, competitors, trends' },
-  { key: 'legal_agent',            label: 'Legal & Compliance',  model: 'gpt-4o-mini', icon: '⚖️', desc: 'Structure, grants, tax' },
-  { key: 'location_analyst',       label: 'Location Analyst',    model: 'gpt-4o-mini', icon: '📍', desc: 'Best areas & demand map' },
-  { key: 'team_architect',         label: 'Team Architect',      model: 'gpt-4o-mini', icon: '👥', desc: 'Hiring plan & costs' },
-  { key: 'financial_planner',      label: 'Financial Planner',   model: 'gpt-4o',      icon: '💰', desc: 'Budget & runway' },
-  { key: 'alternatives_optimizer', label: 'Cost Optimizer',      model: 'gpt-4o-mini', icon: '🔄', desc: 'Budget alternatives' },
-  { key: 'report_synthesizer',     label: 'Report Synthesizer',  model: 'gpt-4o',      icon: '📋', desc: 'Full blueprint' },
+const AGENTS: Array<{ key: string; label: string; group?: 'parallel' }> = [
+  { key: 'idea_refiner',           label: 'Refined brief' },
+  { key: 'market_analyst',         label: 'Market analysis',       group: 'parallel' },
+  { key: 'legal_agent',            label: 'Legal & grants',        group: 'parallel' },
+  { key: 'location_analyst',       label: 'Location strategy',     group: 'parallel' },
+  { key: 'team_architect',         label: 'Team plan' },
+  { key: 'financial_planner',      label: 'Financial plan' },
+  { key: 'alternatives_optimizer', label: 'Budget alternatives' },
+  { key: 'report_synthesizer',     label: 'Final blueprint' },
+  { key: 'critic',                 label: 'Consistency check' },
 ]
 
-interface Props { statuses: Record<string, AgentStatus> }
+function pad(n: number) { return n < 10 ? `0${n}` : `${n}` }
 
-function StatusDot({ status }: { status: AgentStatus | undefined }) {
-  if (!status || status === 'waiting') return <span className="w-2 h-2 rounded-full bg-slate-300 shrink-0" />
-  if (status === 'running')             return <span className="w-2 h-2 rounded-full bg-brand-500 shrink-0 pulse-running" />
-  if (status === 'done')                return <span className="text-emerald-500 shrink-0 text-xs leading-none">✓</span>
-  return <span className="text-red-400 shrink-0 text-xs leading-none">✕</span>
+function StepIcon({ status }: { status: AgentStatus | 'waiting' }) {
+  if (status === 'done') {
+    return (
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="none">
+        <path d="M2.5 6.2 L5 8.7 L9.7 3.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  }
+  if (status === 'error') return <span aria-hidden="true">!</span>
+  if (status === 'running') {
+    return (
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="animate-spin">
+        <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeDasharray="20" strokeDashoffset="8" strokeLinecap="round" />
+      </svg>
+    )
+  }
+  return null
 }
 
-function StatusLabel({ status }: { status: AgentStatus | undefined }) {
-  if (!status || status === 'waiting') return <span className="text-[11px] text-slate-400">Waiting</span>
-  if (status === 'running')             return <span className="text-[11px] text-brand-600 font-medium">Running…</span>
-  if (status === 'done')                return <span className="text-[11px] text-emerald-600 font-medium">Done</span>
-  return <span className="text-[11px] text-red-500 font-medium">Error</span>
+interface Props {
+  statuses: Record<string, AgentStatus>
+  availableKeys: Set<string>
+  activeKey: string | null
+  onJump: (key: string) => void
 }
 
-export default function AgentProgress({ statuses }: Props) {
-  const doneCount = AGENTS.filter(a => statuses[a.key] === 'done').length
-  const pct = (doneCount / AGENTS.length) * 100
+export default function AgentProgress({ statuses, availableKeys, activeKey, onJump }: Props) {
+  const doneCount  = AGENTS.filter(a => statuses[a.key] === 'done').length
+  const errorCount = AGENTS.filter(a => statuses[a.key] === 'error').length
+  const percent    = Math.round((doneCount / AGENTS.length) * 100)
+  const running    = AGENTS.find(a => statuses[a.key] === 'running')
 
   return (
-    <aside className="w-64 shrink-0 bg-white border-r border-slate-100 flex flex-col h-full overflow-y-auto">
-      {/* Header */}
-      <div className="px-4 py-4 border-b border-slate-100">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="brand-mark !w-7 !h-7 !text-xs">F</div>
-          <div className="leading-tight flex-1">
-            <div className="font-display font-bold text-ink text-sm">FounderAI</div>
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider">Live pipeline</div>
+    <aside
+      className="w-64 shrink-0 h-full border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 overflow-y-auto"
+      aria-labelledby="progress-heading"
+    >
+      <div className="px-5 pt-6 pb-4 border-b border-slate-200 dark:border-slate-800">
+        <h2 id="progress-heading" className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Blueprint
+        </h2>
+        <div className="mt-2 flex items-baseline justify-between">
+          <span className="text-[14px] font-semibold text-slate-900 dark:text-slate-100">
+            {doneCount}/{AGENTS.length} sections
+          </span>
+          <span className="text-[12px] text-slate-500 dark:text-slate-400 tabular-nums">{percent}%</span>
+        </div>
+        <div
+          className="progress mt-2"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={AGENTS.length}
+          aria-valuenow={doneCount}
+          aria-valuetext={`${doneCount} of ${AGENTS.length} sections complete`}
+        >
+          <div className="progress-bar" style={{ width: `${percent}%` }} />
+        </div>
+        {running && (
+          <div className="mt-2 text-[12px] text-slate-600 dark:text-slate-300 truncate" aria-live="polite" title={running.label}>
+            Working on: <span className="font-medium">{running.label}</span>
           </div>
-        </div>
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Agents</span>
-          <span className="text-xs font-mono font-semibold text-brand-600">{doneCount}/{AGENTS.length}</span>
-        </div>
-        {/* Progress bar */}
-        <div className="relative h-1.5 bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-brand-gradient rounded-full transition-all duration-700 ease-out"
-            style={{ width: `${pct}%` }}
-          />
-          {pct > 0 && pct < 100 && (
-            <div
-              className="absolute top-0 h-full w-6 bg-white/50 blur-md animate-shimmer"
-              style={{ left: `${Math.max(0, pct - 8)}%` }}
-            />
-          )}
-        </div>
+        )}
+        {errorCount > 0 && (
+          <div className="mt-2 badge badge-danger">{errorCount} error{errorCount > 1 ? 's' : ''}</div>
+        )}
       </div>
 
-      {/* Parallel badge */}
-      <div className="mx-4 mt-3 mb-2 flex items-start gap-1.5 text-[11px] text-gold-600 bg-gold-400/10 border border-gold-400/30 rounded-lg px-2.5 py-2 leading-snug">
-        <span className="text-sm leading-none mt-px">⚡</span>
-        <span><strong className="font-semibold">Parallel fan-out</strong> — agents 2, 3 &amp; 4 run simultaneously</span>
-      </div>
+      <nav aria-label="Blueprint sections" className="py-3">
+        <ol className="space-y-0.5 px-2">
+          {AGENTS.map((a, i) => {
+            const status = statuses[a.key] ?? 'waiting'
+            const available = availableKeys.has(a.key)
+            const isActive = activeKey === a.key
+            const base =
+              'w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-md transition-colors text-[13.5px] '
+            const stateClass = isActive
+              ? 'bg-white dark:bg-slate-800 text-primary-700 dark:text-primary-300 font-medium border-l-2 border-primary-600 dark:border-primary-400 pl-[10px]'
+              : available
+                ? 'text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'
+                : 'text-slate-400 dark:text-slate-500 cursor-default'
 
-      {/* Agent list */}
-      <div className="flex-1 px-3 py-2 space-y-1 relative">
-        {AGENTS.map((agent, idx) => {
-          const status = statuses[agent.key]
-          const isParallel = idx === 1 || idx === 2 || idx === 3
-          const isRunning = status === 'running'
-          const isDone = status === 'done'
-          const isFinal = idx === AGENTS.length - 1
+            return (
+              <li key={a.key}>
+                <button
+                  type="button"
+                  disabled={!available}
+                  onClick={() => available && onJump(a.key)}
+                  aria-current={isActive ? 'true' : undefined}
+                  className={base + stateClass}
+                >
+                  <span className={`step-dot ${status}`} aria-hidden="true">
+                    {status === 'waiting' ? pad(i + 1) : <StepIcon status={status} />}
+                  </span>
+                  <span className="flex-1 min-w-0 truncate">{a.label}</span>
+                  {a.group === 'parallel' && status === 'waiting' && (
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">∥</span>
+                  )}
+                </button>
+              </li>
+            )
+          })}
+        </ol>
+      </nav>
 
-          return (
-            <div
-              key={agent.key}
-              className={`
-                relative rounded-xl px-3 py-2.5 transition-all duration-200
-                ${isParallel ? 'ml-3 border-l-2 border-gold-400/60' : ''}
-                ${isRunning ? 'bg-brand-50 ring-1 ring-brand-200 shadow-sm' : ''}
-                ${isDone ? 'bg-emerald-50/40' : ''}
-                ${isFinal && isDone ? '!bg-gradient-to-r from-brand-50 to-gold-400/10 ring-1 ring-brand-200' : ''}
-                ${!status || status === 'waiting' ? 'opacity-55' : ''}
-              `}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-base w-5 text-center shrink-0">{agent.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-ink-soft truncate">{agent.label}</span>
-                    <StatusDot status={status} />
-                  </div>
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[11px] text-slate-400 truncate">{agent.desc}</span>
-                    <StatusLabel status={status} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Model legend */}
-      <div className="px-4 py-3 border-t border-slate-100 space-y-1.5 bg-slate-50/50">
-        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Models</div>
-        <div className="flex items-center gap-2 text-[11px] text-slate-500">
-          <span className="w-2 h-2 rounded-full bg-brand-300 shrink-0" />
-          <span className="font-mono">gpt-4o-mini</span>
-          <span className="text-slate-400">· fast tasks</span>
-        </div>
-        <div className="flex items-center gap-2 text-[11px] text-slate-500">
-          <span className="w-2 h-2 rounded-full bg-brand-600 shrink-0" />
-          <span className="font-mono">gpt-4o</span>
-          <span className="text-slate-400">· synthesis</span>
-        </div>
+      <div className="mt-2 mx-4 pt-3 pb-5 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400">
+        Claude 5.5 · LangGraph
       </div>
     </aside>
   )

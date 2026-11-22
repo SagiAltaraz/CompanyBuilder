@@ -1,159 +1,236 @@
-import React, { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import AgentProgress from '../components/AgentProgress'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import AgentProgress  from '../components/AgentProgress'
 import ReportRenderer from '../components/ReportRenderer'
-import MetricsBar from '../components/MetricsBar'
-import ChatPanel from '../components/ChatPanel'
+import MetricsBar     from '../components/MetricsBar'
+import ChatPanel      from '../components/ChatPanel'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { useLanguageDir, useTheme } from '../hooks/useTheme'
 
-const AGENT_LABELS: Record<string, string> = {
-  idea_refiner:           '💡 Refined Business Concept',
-  market_analyst:         '📊 Market Analysis',
-  legal_agent:            '⚖️ Legal & Compliance',
-  location_analyst:       '📍 Location Strategy',
-  team_architect:         '👥 Team Structure',
-  financial_planner:      '💰 Financial Plan',
-  alternatives_optimizer: '🔄 Budget Alternatives',
-  report_synthesizer:     '📋 Full Company Blueprint',
-}
-
-const AGENT_ORDER = [
-  'idea_refiner', 'market_analyst', 'legal_agent', 'location_analyst',
-  'team_architect', 'financial_planner', 'alternatives_optimizer', 'report_synthesizer',
+const SECTIONS: Array<{ key: string; title: string }> = [
+  { key: 'idea_refiner',           title: 'The brief, refined' },
+  { key: 'market_analyst',         title: 'Market analysis' },
+  { key: 'legal_agent',            title: 'Legal & grants' },
+  { key: 'location_analyst',       title: 'Location strategy' },
+  { key: 'team_architect',         title: 'Team plan' },
+  { key: 'financial_planner',      title: 'Financial plan' },
+  { key: 'alternatives_optimizer', title: 'Budget alternatives' },
+  { key: 'report_synthesizer',     title: 'Final blueprint' },
+  { key: 'critic',                 title: 'Consistency check' },
 ]
 
 interface AgentRun {
-  agent_name: string; status: string
-  duration_ms: number | null; tokens_used: number | null; model_used: string | null
+  agent_name: string
+  status: string
+  duration_ms: number | null
+  tokens_used: number | null
+  model_used: string | null
 }
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 export default function Blueprint() {
   const { id } = useParams<{ id: string }>()
-  const { agentStatuses, agentOutputs, report, error, isComplete } = useWebSocket(id ?? null)
-  const [agentRuns, setAgentRuns] = useState<AgentRun[]>([])
-  const [showChat, setShowChat] = useState(false)
+  const {
+    agentStatuses, agentNarratives, agentOutputs,
+    error, isComplete,
+  } = useWebSocket(id ?? null)
 
-  // Poll for metrics once complete
+  const refined = agentOutputs['idea_refiner'] as { language?: string; concept?: string } | undefined
+  useLanguageDir(refined?.language)
+
+  const { theme, toggle } = useTheme()
+  const [agentRuns, setAgentRuns] = useState<AgentRun[]>([])
+  const [showChat, setShowChat]   = useState(false)
+  const [metaIdea, setMetaIdea]   = useState<string>('')
+  const [activeKey, setActiveKey] = useState<string | null>(null)
+
+  const scrollRef  = useRef<HTMLDivElement | null>(null)
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
+
   useEffect(() => {
     if (!id || !isComplete) return
     fetch(`${API_BASE}/blueprints/${id}`)
       .then(r => r.json())
-      .then(d => setAgentRuns(d.agents ?? []))
+      .then(d => {
+        setAgentRuns(d.agents ?? [])
+        setMetaIdea(d.raw_input ?? '')
+      })
       .catch(() => {})
   }, [id, isComplete])
 
-  const visibleSections = AGENT_ORDER.filter(k => agentOutputs[k])
+  const availableKeys = useMemo(
+    () => new Set(Object.keys(agentNarratives).filter(k => agentNarratives[k])),
+    [agentNarratives],
+  )
+  const visible = SECTIONS.filter(s => agentNarratives[s.key])
+  const ideaOneLine = refined?.concept ?? metaIdea.split('\n')[0] ?? ''
+
+  // Scroll-spy: highlight whichever section's top is nearest the viewport top.
+  useEffect(() => {
+    const root = scrollRef.current
+    if (!root || visible.length === 0) return
+
+    const io = new IntersectionObserver(
+      entries => {
+        // Keep the topmost intersecting section as active.
+        const intersecting = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        if (intersecting[0]) {
+          const key = intersecting[0].target.getAttribute('data-section-key')
+          if (key) setActiveKey(key)
+        }
+      },
+      {
+        root,
+        rootMargin: '-10% 0px -70% 0px',  // triggers when section top is in upper third
+        threshold: 0,
+      },
+    )
+    visible.forEach(s => {
+      const el = sectionRefs.current[s.key]
+      if (el) io.observe(el)
+    })
+    return () => io.disconnect()
+  }, [visible])
+
+  // Default active to first available section.
+  useEffect(() => {
+    if (!activeKey && visible[0]) setActiveKey(visible[0].key)
+  }, [activeKey, visible])
+
+  const jumpTo = (key: string) => {
+    const el = sectionRefs.current[key]
+    const root = scrollRef.current
+    if (!el || !root) return
+    const offset = el.offsetTop - 16
+    root.scrollTo({ top: offset, behavior: 'smooth' })
+    setActiveKey(key)
+  }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
-      {/* ── Left sidebar ── */}
-      <AgentProgress statuses={agentStatuses} />
+    <div className="flex h-screen overflow-hidden bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+      <AgentProgress
+        statuses={agentStatuses}
+        availableKeys={availableKeys}
+        activeKey={activeKey}
+        onJump={jumpTo}
+      />
 
-      {/* ── Main area ── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top bar */}
-        <div className="bg-white/80 backdrop-blur border-b border-slate-100 px-5 py-2.5 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <Link to="/" className="btn-ghost">
-              <span aria-hidden>←</span> New blueprint
-            </Link>
-            <span className="text-slate-200">|</span>
-            <span className="text-xs font-mono text-slate-400 hidden sm:block">{id?.slice(0, 8)}…</span>
+        <header className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link to="/" className="btn-ghost">← New plan</Link>
+            <span className="text-[13px] text-slate-500 dark:text-slate-400 font-mono">
+              {id?.slice(0, 8)}
+            </span>
           </div>
-          <div className="flex items-center gap-3">
-            {isComplete && !error && (
-              <>
-                <button
-                  onClick={() => setShowChat(c => !c)}
-                  className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
-                    showChat
-                      ? 'bg-brand-gradient text-white border-transparent shadow-glow-brand'
-                      : 'bg-white text-brand-600 border-brand-200 hover:bg-brand-50'
-                  }`}
-                >
-                  💬 {showChat ? 'Hide chat' : 'Ask advisor'}
-                </button>
-                <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                  Complete
-                </span>
-              </>
-            )}
+          <div className="flex items-center gap-2">
             {!isComplete && !error && (
-              <span className="text-xs font-medium flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-pulse" />
-                <span className="shimmer-text">Agents running…</span>
+              <span className="badge badge-info">Working…</span>
+            )}
+            {isComplete && !error && (
+              <span className="badge badge-success">
+                <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                  <path d="M2 5.5L4 7.5L8 2.5" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Complete
               </span>
             )}
-            {error && <span className="text-xs text-red-500 font-medium">Pipeline error</span>}
+            {error && <span className="badge badge-danger">Error</span>}
+            {isComplete && !error && (
+              <button
+                type="button"
+                onClick={() => setShowChat(c => !c)}
+                className={showChat ? 'btn-primary' : 'btn-secondary'}
+                aria-pressed={showChat}
+              >
+                {showChat ? 'Hide chat' : 'Ask advisor'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={toggle}
+              className="btn-ghost"
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              {theme === 'dark' ? 'Light' : 'Dark'}
+            </button>
           </div>
-        </div>
+        </header>
 
-        {/* Metrics bar */}
-        {agentRuns.length > 0 && <MetricsBar agents={agentRuns} />}
+        {/* Summary strip */}
+        {agentRuns.length > 0 && (
+          <MetricsBar agents={agentRuns} blueprintId={id} ideaOneLine={ideaOneLine} />
+        )}
 
-        {/* Content + optional chat */}
+        {/* Content + chat */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Report / progress area */}
-          <div className={`flex-1 overflow-y-auto p-6 ${showChat ? 'border-r border-gray-100' : ''}`}>
-            {error && (
-              <div className="max-w-2xl mx-auto bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">
-                <strong>Pipeline error:</strong> {error}
-              </div>
-            )}
-
-            {/* Section-by-section reveal — stays visible through completion */}
-            {visibleSections.length > 0 && (
-              <div className="max-w-4xl mx-auto space-y-4">
-                {visibleSections.map(key => {
-                  const isFinal = key === 'report_synthesizer'
-                  return (
-                    <div key={key} className={`overflow-hidden animate-fade-up ${isFinal ? 'card-highlight' : 'card'}`}>
-                      <div className="card-header">
-                        <span className={`font-display text-sm font-bold tracking-tight ${isFinal ? 'text-gradient' : 'text-brand-700'}`}>
-                          {AGENT_LABELS[key] ?? key}
-                        </span>
-                        <span className="ml-auto chip-success !py-0.5 !text-[11px]">Done ✓</span>
-                      </div>
-                      <div className={isFinal ? 'px-6 py-6 sm:px-8' : 'px-6 py-4'}>
-                        <ReportRenderer content={agentOutputs[key]} isFinalReport={isFinal && isComplete} />
-                      </div>
-                    </div>
-                  )
-                })}
-
-                {/* Spinner while next agent runs */}
-                {!isComplete && (
-                  <div className="card px-6 py-4 flex items-center gap-3">
-                    <span className="w-4 h-4 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin shrink-0" />
-                    <span className="text-sm shimmer-text">Next agent is running…</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Empty state — shown only before any agent completes */}
-            {visibleSections.length === 0 && !error && (
-              <div className="max-w-xl mx-auto text-center py-24 animate-fade-up">
-                <div className="relative w-20 h-20 mx-auto mb-5">
-                  <div className="absolute inset-0 bg-brand-gradient rounded-2xl rotate-6 opacity-20 blur-xl" />
-                  <div className="relative w-full h-full bg-brand-gradient rounded-2xl flex items-center justify-center text-3xl shadow-glow-brand">⚡</div>
+          <div
+            ref={scrollRef}
+            className={'flex-1 overflow-y-auto ' + (showChat ? 'border-r border-slate-200 dark:border-slate-800' : '')}
+          >
+            <main id="main" className="max-w-3xl mx-auto px-5 sm:px-8 py-8">
+              {error && (
+                <div role="alert" className="mb-6 rounded-lg border border-danger-500/40 bg-danger-500/10 px-4 py-3 text-[14px] text-danger-700 dark:text-danger-500">
+                  <strong className="font-semibold">Pipeline error · </strong>{error}
                 </div>
-                <h2 className="font-display text-xl font-bold text-ink mb-2 tracking-tight">Analysis in progress</h2>
-                <p className="text-slate-500 text-sm leading-relaxed">
-                  8 AI agents are analyzing your business idea.<br />
-                  <span className="text-gold-600 font-medium">Market, Legal &amp; Location</span> agents run in parallel.<br />
-                  First results appear in ~15 seconds.
-                </p>
-              </div>
-            )}
+              )}
+
+              {visible.length === 0 && !error && (
+                <div className="mt-20 text-center">
+                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300 mb-4">
+                    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" className="animate-spin">
+                      <circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="34" strokeDashoffset="14" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <h2 className="text-[18px] font-semibold text-slate-900 dark:text-slate-100">
+                    Preparing your blueprint
+                  </h2>
+                  <p className="mt-2 text-[14px] text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                    First sections appear in about fifteen seconds. You can stay here or come back later.
+                  </p>
+                </div>
+              )}
+
+              {visible.map((section, idx) => {
+                const isFinal = section.key === 'report_synthesizer'
+                return (
+                  <article
+                    key={section.key}
+                    id={`section-${section.key}`}
+                    data-section-key={section.key}
+                    ref={el => { sectionRefs.current[section.key] = el }}
+                    className={'card p-6 sm:p-7 mb-5 animate-slide-up scroll-mt-4 ' + (isFinal ? 'card-highlight' : '')}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="section-eyebrow">Section {String(idx + 1).padStart(2, '0')}</span>
+                      <span className="badge badge-success text-[11px]">Ready</span>
+                    </div>
+                    <h2 className="section-title mb-4">{section.title}</h2>
+                    <ReportRenderer
+                      content={agentNarratives[section.key]}
+                      isFinalReport={isFinal && isComplete}
+                    />
+                  </article>
+                )
+              })}
+
+              {!isComplete && visible.length > 0 && (
+                <div className="text-[13px] text-slate-500 dark:text-slate-400 mt-4 flex items-center gap-2">
+                  <svg width="12" height="12" viewBox="0 0 12 12" className="animate-spin" aria-hidden="true">
+                    <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeDasharray="20" strokeDashoffset="8" strokeLinecap="round" />
+                  </svg>
+                  Next section coming…
+                </div>
+              )}
+            </main>
           </div>
 
-          {/* Chat panel */}
           {showChat && id && (
-            <div className="w-80 shrink-0 flex flex-col overflow-hidden border-l border-gray-100">
+            <div className="w-80 shrink-0 flex flex-col overflow-hidden">
               <ChatPanel blueprintId={id} />
             </div>
           )}

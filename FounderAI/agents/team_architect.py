@@ -1,87 +1,62 @@
-import time
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
+"""Agent 5 — team architect: hiring plan with Israeli salary data."""
+from __future__ import annotations
+
+from .client import call_structured
+from .schemas import LegalCompliance, LocationStrategy, MarketAnalysis, RefinedIdea, TeamPlan
 from .state import FounderState
-from .utils import summarize_text
+from .utils import summarize_for_handoff
 
-MODEL_NAME = "gpt-4o-mini"
+CACHED_PREAMBLE = """You are the Team Architect — agent 5 of the FounderAI pipeline. You produce a concrete hiring plan with realistic Israeli monthly costs.
 
-SYSTEM_PROMPT = (
-    "You are an organizational design expert and HR advisor for startups. "
-    "Build a detailed, actionable hiring plan with real cost data.\n\n"
+Rules:
+- `hires` is a chronological list from month 0 forward. The founder is always the first entry (role="Founder", seniority=lead, employment_type="founder", monthly_cost_nis=0 in bootstrap). Every other hire has a specific `hire_month` ≥ 0.
+- `monthly_cost_nis` is total cost to the business, not gross salary: for employees add ~25% employer overhead on top of gross (Bituach Leumi, pension, severance reserve). For freelancers use effective monthly spend.
+- `employment_type`: "founder" | "employee" | "freelancer" | "offshore".
+- `stage1_monthly_cost_nis` is months 0–6, `stage2` is 6–18, `stage3` is 18–36. Sum of `hires` active in each stage.
+- `employer_overhead_pct` stays around 0.25 for Israel unless you justify otherwise.
+- `narrative_md`: 250–450 words with a stage table and a note on which roles should start offshore vs. local.
+- Respond in the user's language.
 
-    "## STAGE 1 — BOOTSTRAP (Months 0-6)\n"
-    "Goal: MVP + first 3-5 paying customers. Absolute minimum team.\n\n"
-    "Table: Role | # | Gross Salary (₪/mo) | Employer Total Cost (₪/mo) | "
-    "Employee / Freelancer / Offshore | Key Responsibilities | Priority\n\n"
-    "Include: founder (₪0 salary stage 1), any critical freelancers.\n"
-    "**Stage 1 Total: ₪X–₪Y/month**\n\n"
-
-    "## STAGE 2 — EARLY TRACTION (Months 6-18)\n"
-    "First real hires, triggered by revenue milestones.\n\n"
-    "Table: Role | # | Gross Salary (₪/mo) | Total Employer Cost | "
-    "Hire Trigger (revenue/event) | Employee vs Freelancer | Offshore Option?\n\n"
-    "**Stage 2 Total: ₪X–₪Y/month**\n\n"
-
-    "## STAGE 3 — SCALING (Months 18-36)\n"
-    "Building departments, management layer.\n\n"
-    "Table: Role | # | Gross Salary (₪/mo) | Total Employer Cost | Department | Priority\n\n"
-    "**Stage 3 Total: ₪X–₪Y/month**\n\n"
-
-    "## SALARY BENCHMARKS (Israel 2024)\n"
-    "Table: Role | Junior (₪/mo gross) | Mid (₪/mo gross) | Senior (₪/mo gross) | "
-    "Freelance Rate (₪/hr) | Offshore Alternative ($/mo)\n"
-    "Cover all roles relevant to this business type.\n\n"
-
-    "## EMPLOYER SOCIAL COST BREAKDOWN (Israel)\n"
-    "Table: Component | % of Salary | Notes\n"
-    "Include: Bituach Leumi (employer), vacation pay, sick days, pension (keren hishtalmut), "
-    "severance reserve. Total: typically 20-27% on top of gross.\n\n"
-
-    "## OFFSHORE OPTIONS\n"
-    "Table: Role | Local Cost (₪/mo) | Offshore Location | Offshore Cost ($/mo) | "
-    "Quality Notes | Recommended Platforms\n"
-    "Include: Upwork, Toptal, Israeli outsourcing companies, specific Eastern Europe locations.\n\n"
-
-    "## WHAT FOUNDER DOES INSTEAD\n"
-    "For each role in Stage 1 that isn't hired: what the founder must do themselves, "
-    "time estimate per week, and at what point it becomes unsustainable.\n\n"
-
-    "Be specific with all numbers. Use Israeli shekel (₪) as primary currency."
-)
+Use the typed Market, Legal, and Location inputs directly — specifically:
+- Team size should match the SOM in year 1–2 (don't plan a team that can't be supported by target revenue).
+- If `legal.entity_recommendation` is sole_proprietor, assume the founder stays technical/operational longer.
+- If `location.is_physical` is true, include a store/location manager hire at month 1–3.
+"""
 
 
 async def team_architect_node(state: FounderState) -> dict:
-    start = time.perf_counter()
     try:
-        refined = state.get("refined_idea", state.get("raw_input", ""))
+        idea: RefinedIdea | None = state.get("refined_idea")
+        market: MarketAnalysis | None = state.get("market_analysis")
+        legal: LegalCompliance | None = state.get("legal_compliance")
+        location: LocationStrategy | None = state.get("location_analysis")
         language = state.get("language", "en")
-        market = summarize_text(state.get("market_analysis", ""), 800)
-        legal = summarize_text(state.get("legal_compliance", ""), 800)
-        location = summarize_text(state.get("location_analysis", ""), 600)
 
-        llm = ChatOpenAI(model=MODEL_NAME, temperature=0, max_tokens=2000)
-        response = await llm.ainvoke([
-            SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=(
-                f"Business concept:\n{refined}\n\n"
-                f"Market analysis:\n{market}\n\n"
-                f"Legal & compliance:\n{legal}\n\n"
-                f"Location strategy:\n{location}\n\n"
-                f"Respond in language: {language}"
-            )),
-        ])
-        duration = int((time.perf_counter() - start) * 1000)
-        tokens = response.response_metadata.get("token_usage", {}).get("total_tokens", 0)
+        task = (
+            f"User language: {language}.\n\n"
+            f"Refined idea:\n{summarize_for_handoff(idea, 800)}\n\n"
+            f"Market:\n{summarize_for_handoff(market, 1200)}\n\n"
+            f"Legal:\n{summarize_for_handoff(legal, 1200)}\n\n"
+            f"Location:\n{summarize_for_handoff(location, 800)}"
+        )
+        result, meta = await call_structured(
+            role="sonnet",
+            cached_preamble=CACHED_PREAMBLE,
+            task_instruction=task,
+            user_message="Produce the team plan.",
+            schema=TeamPlan,
+            tool_name="submit_team_plan",
+            max_tokens=2048,
+        )
         return {
-            "team_structure": response.content.strip(),
+            "team_structure": result,
             "current_agent": "team_architect",
             "agent_statuses": {"team_architect": "done"},
-            "metadata": {"team_architect": {"model_used": MODEL_NAME, "duration_ms": duration, "tokens_used": tokens}},
+            "metadata": {"team_architect": meta},
         }
     except Exception as exc:
         return {
             "current_agent": "team_architect",
             "agent_statuses": {"team_architect": "error"},
-            "error": str(exc),
+            "error": f"team_architect: {exc}",
         }

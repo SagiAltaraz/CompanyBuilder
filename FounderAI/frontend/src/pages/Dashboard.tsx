@@ -1,41 +1,74 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTheme } from '../hooks/useTheme'
 
-const EXAMPLES = [
-  { emoji: '☕', label: 'Coffee cart in Tel Aviv', idea: 'I want to open a mobile coffee cart business in Tel Aviv targeting office workers and tourist areas.' },
-  { emoji: '💻', label: 'Web design agency',       idea: 'A web design agency for small and medium businesses in Israel — websites, landing pages, SEO.' },
-  { emoji: '🍕', label: 'SaaS for restaurants',    idea: 'SaaS platform for restaurant management — orders, staff scheduling, inventory, and loyalty program.' },
-  { emoji: '💍', label: 'Handmade jewelry store',  idea: 'Online store selling handmade jewelry to a global audience, focusing on unique artisan pieces.' },
-  { emoji: '📱', label: 'סוכנות שיווק דיגיטלי',     idea: 'אני רוצה להקים סוכנות שיווק דיגיטלי לעסקים קטנים בישראל, כולל ניהול רשתות חברתיות, SEO ופרסום ממומן.' },
+const BIZ_MODELS = [
+  { value: 'b2b',         title: 'B2B',         sub: 'Sell to businesses' },
+  { value: 'b2c',         title: 'B2C',         sub: 'Sell to consumers' },
+  { value: 'b2b2c',       title: 'B2B2C',       sub: 'Business → consumer' },
+  { value: 'marketplace', title: 'Marketplace', sub: 'Connect two sides' },
+]
+const MARKETS = [
+  { value: 'israel',  title: 'Israel',  sub: 'Local market' },
+  { value: 'global',  title: 'Global',  sub: 'Worldwide' },
+  { value: 'region',  title: 'Region',  sub: 'EU / US / other' },
+]
+const STAGES = [
+  { value: 'idea',           title: 'Just an idea',   sub: 'Not built yet' },
+  { value: 'mvp',            title: 'MVP',            sub: 'Prototype built' },
+  { value: 'early_revenue',  title: 'Early revenue',  sub: 'First customers' },
+  { value: 'scaling',        title: 'Scaling',        sub: 'Growing fast' },
 ]
 
-const FEATURES = [
-  { icon: '📊', title: 'Market Research',  desc: 'TAM/SAM/SOM, top competitors, positioning gaps.' },
-  { icon: '📍', title: 'Location Strategy', desc: 'Best neighborhoods, rent ₪/sqm, demand mapping.' },
-  { icon: '💰', title: 'Financial Plan',    desc: 'Burn rate, runway, grants, funding paths.' },
-  { icon: '🇮🇱', title: 'Israel-Aware',      desc: 'Innovation Authority, Tnufa, VAT, osek murshe.' },
+const EXAMPLES = [
+  { label: 'Mobile café',       text: 'A mobile coffee cart in Tel Aviv targeting tech workers around Rothschild and Sarona on weekdays, and weekend markets.' },
+  { label: 'Design studio',     text: 'A boutique web design agency for small and medium Israeli businesses — websites, landing pages, and a simple SEO retainer.' },
+  { label: 'Restaurant SaaS',   text: 'A Hebrew-first SaaS for Israeli restaurants: orders, scheduling, inventory, and a small loyalty program.' },
+  { label: 'סוכנות דיגיטל',      text: 'אני רוצה להקים סוכנות שיווק דיגיטלי לעסקים קטנים בישראל, כולל ניהול רשתות חברתיות, SEO ופרסום ממומן.' },
+]
+
+const DELIVERABLES = [
+  { title: 'Market analysis',    body: 'TAM/SAM/SOM, top competitors, positioning gaps.' },
+  { title: 'Legal & grants',     body: 'Entity, licenses, VAT, Innovation Authority programs.' },
+  { title: 'Location & team',    body: 'Neighborhood rents or GTM markets · hiring plan with real salaries.' },
+  { title: 'Finances & roadmap', body: 'Setup cost, monthly burn, runway, 12-month revenue + milestones.' },
 ]
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 export default function Dashboard() {
-  const [idea, setIdea] = useState('')
+  const [idea, setIdea]       = useState('')
+  const [model, setModel]     = useState<string>('b2c')
+  const [market, setMarket]   = useState<string>('israel')
+  const [stage, setStage]     = useState<string>('idea')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError]     = useState<string | null>(null)
   const navigate = useNavigate()
+  const { theme, toggle } = useTheme()
 
-  const submit = async () => {
-    const trimmed = idea.trim()
-    if (!trimmed) return
+  const canSubmit = idea.trim().length >= 20 && !loading
+  const ideaLen = idea.trim().length
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!canSubmit) return
     setLoading(true)
     setError(null)
+    // Concatenate the structured answers into the brief sent to the backend.
+    // The idea_refiner will read the labels and fill the typed RefinedIdea fields.
+    const briefing = `Business idea: ${idea.trim()}
+
+Business model: ${model}
+Target market: ${market}
+Stage: ${stage}`
+
     try {
       const res = await fetch(`${API_BASE}/blueprints`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idea: trimmed }),
+        body: JSON.stringify({ idea: briefing }),
       })
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) throw new Error(await res.text() || 'Server error')
       const data = await res.json()
       navigate(`/blueprint/${data.blueprint_id}`)
     } catch (err) {
@@ -45,141 +78,195 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="relative min-h-screen bg-mesh flex flex-col overflow-hidden">
-      {/* Decorative blueprint grid overlay */}
-      <div className="absolute inset-0 bg-blueprint opacity-60 pointer-events-none" />
-
-      {/* Animated gradient blobs */}
-      <div className="blob bg-brand-300 w-[420px] h-[420px] -top-32 -left-32 animate-blob-slow" />
-      <div className="blob bg-gold-400/60 w-[360px] h-[360px] top-24 -right-24 animate-blob-slower" />
-      <div className="blob bg-brand-500/40 w-[480px] h-[480px] bottom-[-160px] left-1/3 animate-blob-slow" />
-
-      {/* ── Header ── */}
-      <header className="relative z-10 px-8 py-4 flex items-center justify-between backdrop-blur-md bg-white/60 border-b border-white/40">
-        <div className="flex items-center gap-3">
-          <div className="brand-mark">F</div>
-          <div className="leading-tight">
-            <div className="font-display font-extrabold text-ink text-lg tracking-tight">FounderAI</div>
-            <div className="text-[11px] text-slate-500 font-medium tracking-wide uppercase hidden sm:block">
-              AI Strategic Co-Founder
-            </div>
-          </div>
+    <div className="min-h-screen bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+      {/* Header */}
+      <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          <a href="/" className="logo">
+            <span className="logo-mark" aria-hidden>F</span>
+            <span className="logo-text">FounderAI</span>
+          </a>
+          <nav className="flex items-center gap-1" aria-label="Primary">
+            <a href="https://github.com/sagialtaraz/CompanyBuilder" target="_blank" rel="noreferrer" className="btn-ghost">
+              GitHub
+            </a>
+            <button
+              type="button"
+              onClick={toggle}
+              className="btn-ghost"
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              aria-pressed={theme === 'dark'}
+            >
+              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            </button>
+          </nav>
         </div>
-        <a
-          href="https://github.com/sagialtaraz/CompanyBuilder"
-          target="_blank"
-          rel="noreferrer"
-          className="btn-ghost"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.32-1.28-1.67-1.28-1.67-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.74-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.47.11-3.07 0 0 .97-.31 3.18 1.18a11.05 11.05 0 0 1 5.78 0c2.21-1.49 3.18-1.18 3.18-1.18.63 1.6.23 2.78.11 3.07.74.81 1.19 1.84 1.19 3.1 0 4.43-2.69 5.41-5.26 5.69.41.36.77 1.05.77 2.13v3.15c0 .31.21.66.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
-          GitHub
-        </a>
       </header>
 
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-16">
-        {/* ── Hero ── */}
-        <div className="max-w-2xl w-full text-center mb-10 animate-fade-up">
-          <div className="chip-gold mb-5">
-            <span className="w-1.5 h-1.5 bg-gold-500 rounded-full animate-pulse" />
-            8 AI Agents · Parallel Analysis · Hebrew &amp; English
-          </div>
-          <h1 className="font-display text-5xl sm:text-6xl font-extrabold text-ink mb-5 leading-[1.05] tracking-tight">
-            From idea to{' '}
-            <span className="text-gradient">company blueprint</span>
-            <br className="hidden sm:block" />
-            <span className="text-ink-soft font-bold"> in minutes.</span>
+      <main id="main" className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+        {/* Intro */}
+        <div className="animate-slide-up">
+          <h1 className="text-[28px] sm:text-[34px] font-semibold tracking-tight text-slate-900 dark:text-slate-100 leading-tight">
+            Plan your business, step by step.
           </h1>
-          <p className="text-lg text-slate-500 max-w-xl mx-auto leading-relaxed">
-            Describe any business idea. Eight specialized AI agents deliver market research,
-            legal setup, location strategy, financials, and a 12-month roadmap — built for Israeli founders.
+          <p className="mt-3 text-[16px] text-slate-600 dark:text-slate-400 leading-relaxed max-w-prose">
+            Answer four short questions. In about two minutes, nine agents build you a tailored blueprint —
+            market, legal, location, team, and finances — in Hebrew or English.
           </p>
         </div>
 
-        {/* ── Input card ── */}
-        <div className="w-full max-w-2xl animate-fade-up" style={{ animationDelay: '0.08s' }}>
-          <div className="card-highlight p-6 sm:p-7">
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-              Your business idea
+        {/* Form */}
+        <form onSubmit={submit} className="mt-10 card p-5 sm:p-7 animate-slide-up" noValidate>
+          {/* Idea */}
+          <div className="field">
+            <label htmlFor="idea" className="field-label field-required">
+              What's your business idea?
             </label>
             <textarea
+              id="idea"
+              name="idea"
               value={idea}
               onChange={e => setIdea(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit() }}
+              onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(e as unknown as React.FormEvent) }}
               rows={4}
-              placeholder="Example: I want to open a coffee cart in Tel Aviv targeting tech workers near Rothschild…"
-              className="w-full bg-slate-50/60 border border-slate-200 rounded-xl px-4 py-3 text-ink placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/60 focus:border-transparent focus:bg-white resize-none text-sm transition-all"
+              required
+              minLength={20}
+              placeholder="One or two sentences. What is the business, who buys from it, and where. English or Hebrew."
+              className="textarea"
               dir="auto"
+              aria-describedby="idea-help idea-count"
             />
+            <div className="flex items-center justify-between mt-1.5">
+              <span id="idea-help" className="field-help">
+                20 characters or more. The more specific, the better the plan.
+              </span>
+              <span
+                id="idea-count"
+                className={'text-[12px] tabular-nums ' + (ideaLen >= 20 ? 'text-slate-500' : 'text-slate-400')}
+                aria-live="polite"
+              >
+                {ideaLen} / 20
+              </span>
+            </div>
 
-            {/* Examples */}
-            <div className="mt-3 flex flex-wrap gap-2">
+            {/* Example chips */}
+            <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Example ideas">
               {EXAMPLES.map(ex => (
                 <button
                   key={ex.label}
-                  onClick={() => setIdea(ex.idea)}
-                  className="text-xs bg-white hover:bg-brand-50 hover:text-brand-700 text-slate-600 px-3 py-1.5 rounded-full border border-slate-200 hover:border-brand-200 transition-all flex items-center gap-1.5 hover:-translate-y-0.5 hover:shadow-sm"
+                  type="button"
+                  onClick={() => setIdea(ex.text)}
+                  className="text-[13px] px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
                 >
-                  <span>{ex.emoji}</span>
                   {ex.label}
                 </button>
               ))}
             </div>
-
-            {error && (
-              <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                {error}
-              </p>
-            )}
-
-            <button
-              onClick={submit}
-              disabled={loading || !idea.trim()}
-              className="mt-5 w-full btn-primary py-3.5 text-base disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
-            >
-              {loading ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Starting analysis…
-                </>
-              ) : (
-                <>
-                  Generate Company Blueprint
-                  <span aria-hidden>→</span>
-                </>
-              )}
-            </button>
-            <p className="text-center text-xs text-slate-400 mt-3">
-              <kbd className="font-mono bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-[10px]">⌘</kbd>
-              {' '}+{' '}
-              <kbd className="font-mono bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 text-[10px]">Enter</kbd>
-              {' '}to submit · Hebrew &amp; English supported
-            </p>
           </div>
-        </div>
 
-        {/* ── Feature grid ── */}
-        <div className="mt-14 grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-3xl w-full animate-fade-up" style={{ animationDelay: '0.16s' }}>
-          {FEATURES.map(f => (
-            <div
-              key={f.title}
-              className="group bg-white/80 backdrop-blur border border-slate-200/70 rounded-2xl p-4 shadow-sm hover:shadow-lift hover:-translate-y-0.5 transition-all"
-            >
-              <div className="text-2xl mb-2 group-hover:scale-110 transition-transform inline-block">{f.icon}</div>
-              <div className="font-display font-bold text-ink text-sm mb-1">{f.title}</div>
-              <div className="text-slate-500 text-xs leading-relaxed">{f.desc}</div>
+          <hr className="my-6 border-slate-100 dark:border-slate-800" />
+
+          {/* Business model */}
+          <fieldset className="field">
+            <legend className="field-label">Who are your customers?</legend>
+            <div className="choice-grid mt-1" role="radiogroup" aria-labelledby="model-help">
+              {BIZ_MODELS.map(opt => (
+                <label key={opt.value} className="choice">
+                  <input
+                    type="radio" name="model" value={opt.value}
+                    checked={model === opt.value}
+                    onChange={() => setModel(opt.value)}
+                  />
+                  <div className="choice-body">
+                    <div className="choice-title">{opt.title}</div>
+                    <div className="choice-sub">{opt.sub}</div>
+                  </div>
+                </label>
+              ))}
             </div>
-          ))}
-        </div>
+            <span id="model-help" className="field-help">Pick the closest match — you can refine later.</span>
+          </fieldset>
+
+          {/* Market */}
+          <fieldset className="field mt-5">
+            <legend className="field-label">Where will you operate?</legend>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1" role="radiogroup">
+              {MARKETS.map(opt => (
+                <label key={opt.value} className="choice">
+                  <input
+                    type="radio" name="market" value={opt.value}
+                    checked={market === opt.value}
+                    onChange={() => setMarket(opt.value)}
+                  />
+                  <div className="choice-body">
+                    <div className="choice-title">{opt.title}</div>
+                    <div className="choice-sub">{opt.sub}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {/* Stage */}
+          <fieldset className="field mt-5">
+            <legend className="field-label">Where are you today?</legend>
+            <div className="choice-grid mt-1" role="radiogroup">
+              {STAGES.map(opt => (
+                <label key={opt.value} className="choice">
+                  <input
+                    type="radio" name="stage" value={opt.value}
+                    checked={stage === opt.value}
+                    onChange={() => setStage(opt.value)}
+                  />
+                  <div className="choice-body">
+                    <div className="choice-title">{opt.title}</div>
+                    <div className="choice-sub">{opt.sub}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {error && (
+            <div role="alert" className="mt-5 rounded-lg border border-danger-500/40 bg-danger-500/10 px-3.5 py-2.5 text-[14px] text-danger-700 dark:text-danger-500">
+              {error}
+            </div>
+          )}
+
+          {/* Submit */}
+          <div className="mt-7 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+            <button type="submit" disabled={!canSubmit} className="btn-primary btn-lg w-full sm:w-auto">
+              {loading ? 'Starting agents…' : 'Generate my blueprint'}
+            </button>
+            <span className="text-[13px] text-slate-500 dark:text-slate-400">
+              Takes about 2 minutes · Press <kbd className="font-mono text-[11px] px-1.5 py-0.5 border border-slate-300 dark:border-slate-600 rounded">⌘</kbd>
+              <span className="mx-1">+</span>
+              <kbd className="font-mono text-[11px] px-1.5 py-0.5 border border-slate-300 dark:border-slate-600 rounded">Enter</kbd>
+            </span>
+          </div>
+        </form>
+
+        {/* What you get */}
+        <section className="mt-10 animate-fade-in" aria-labelledby="deliverables-heading">
+          <h2 id="deliverables-heading" className="text-[13px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">
+            What you'll get
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {DELIVERABLES.map(d => (
+              <div key={d.title} className="card p-4">
+                <div className="text-[14px] font-semibold text-slate-900 dark:text-slate-100">{d.title}</div>
+                <div className="text-[13px] text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">{d.body}</div>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
 
-      <footer className="relative z-10 text-center py-6 text-xs text-slate-400">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="w-1 h-1 rounded-full bg-brand-400" />
-          Powered by GPT-4o &amp; LangGraph
-          <span className="w-1 h-1 rounded-full bg-brand-400" />
-          Full strategic analysis in 2–4 minutes
-          <span className="w-1 h-1 rounded-full bg-brand-400" />
-        </span>
+      <footer className="border-t border-slate-200 dark:border-slate-800 mt-16 py-6">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-[13px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center justify-between gap-2">
+          <span>Nine agents · Claude 5.5 · LangGraph</span>
+          <span>Hebrew & English supported</span>
+        </div>
       </footer>
     </div>
   )

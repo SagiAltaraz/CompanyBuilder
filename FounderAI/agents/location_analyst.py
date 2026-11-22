@@ -1,72 +1,53 @@
-import time
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
-from .state import FounderState
-from .utils import summarize_text
+"""Agent 4 — location / geographic strategy (Israel-focused)."""
+from __future__ import annotations
 
-MODEL_NAME = "gpt-4o-mini"
+from .client import call_structured
+from .schemas import LocationStrategy, RefinedIdea
+from .state import FounderState
+from .utils import summarize_for_handoff
+
 AGENT_KEY = "location_analyst"
 
-SYSTEM_PROMPT = (
-    "You are a market geography and location strategy expert, specializing in Israel. "
-    "Analyze where this business should be located or which markets to enter first.\n\n"
+CACHED_PREAMBLE = """You are the Location Analyst — agent 4 of the FounderAI pipeline. You decide where this business should operate.
 
-    "## LOCATION RECOMMENDATION\n"
-    "State the #1 recommended location/area and why in 2-3 sentences.\n\n"
+First decision: set `is_physical` — true for cafés, studios, retail, clinics, carts, physical services that need foot traffic; false for pure online/SaaS/remote services.
 
-    "## TOP AREAS COMPARISON\n"
-    "For physical businesses — compare 3-5 specific areas:\n"
-    "Table: Area / Neighborhood | City | Monthly Rent ₪/sqm | Foot Traffic | "
-    "Target Customer Fit | Competition Level | Overall Score (1-10) | Key Advantage\n\n"
-    "For online/service businesses — compare 3-5 target markets:\n"
-    "Table: City / Region | Population | Avg. Income | Demand Potential | "
-    "Customer Density | Competition | Entry Difficulty | Recommended Priority\n\n"
+For physical businesses: `top_options` = 3–5 real Israeli neighborhoods (not whole cities). Use real neighborhood names (Florentin, Rothschild, Neve Tzedek, Hadar, Kiryat Yovel, Talpiot, …). Include real rent_nis_per_sqm_month figures.
 
-    "## DEMAND ANALYSIS BY AREA\n"
-    "Table: Area | Market Size (₪/month) | # Potential Customers | Avg. Spend per Customer | "
-    "Seasonal Trends | Growth Direction (growing / stable / declining)\n\n"
+For online businesses: `top_options` = 3–5 geo markets/segments (e.g., "Tel Aviv tech workers", "Haifa engineering"), still using the same NeighborhoodOption shape — put the market name in `name`, the broader region in `city`, leave rent null, and use demand_score + competition_level to differentiate.
 
-    "## COMPETITION MAP\n"
-    "Table: Competitor | Area | Monthly Revenue Estimate | Price Point | Their Weakness | "
-    "How to Win Against Them\n\n"
-
-    "## RENT & OVERHEAD BY LOCATION\n"
-    "Table: Area | Space Needed (sqm) | Rent ₪/mo | Utilities Est. | "
-    "Total Location Cost ₪/mo | Notes (parking, accessibility, visibility)\n\n"
-
-    "## EXPANSION ROADMAP\n"
-    "Stage 1 (launch): exact location — what, where, why\n"
-    "Stage 2 (month 6-12): when to add a second location or expand reach\n"
-    "Stage 3 (year 2+): regional or national expansion plan\n\n"
-
-    "Use real Israeli city names, neighborhoods, and streets where relevant. "
-    "Be specific with rent prices in ₪. For non-physical businesses, focus on digital geo-targeting."
-)
+Rules:
+- `recommended_index` points to the #1 option.
+- `expansion_plan_md`: 3 stages (launch / month 6–12 / year 2+) in a short markdown.
+- `narrative_md`: 200–350 word summary with a comparison table of the top options.
+- Respond in the user's language.
+"""
 
 
 async def location_analyst_node(state: FounderState) -> dict:
-    start = time.perf_counter()
     try:
-        refined = state.get("refined_idea", state.get("raw_input", ""))
+        idea: RefinedIdea | None = state.get("refined_idea")
         language = state.get("language", "en")
-
-        llm = ChatOpenAI(model=MODEL_NAME, temperature=0, max_tokens=1800)
-        response = await llm.ainvoke([
-            SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=(
-                f"Business concept:\n{summarize_text(refined, 1000)}\n\n"
-                f"Respond in language: {language}"
-            )),
-        ])
-        duration = int((time.perf_counter() - start) * 1000)
-        tokens = response.response_metadata.get("token_usage", {}).get("total_tokens", 0)
+        task = (
+            f"User language: {language}.\n\n"
+            f"Refined idea (JSON):\n{summarize_for_handoff(idea, 1200)}"
+        )
+        result, meta = await call_structured(
+            role="sonnet",
+            cached_preamble=CACHED_PREAMBLE,
+            task_instruction=task,
+            user_message="Produce the location strategy.",
+            schema=LocationStrategy,
+            tool_name="submit_location_strategy",
+            max_tokens=2048,
+        )
         return {
-            "location_analysis": response.content.strip(),
+            "location_analysis": result,
             "agent_statuses": {AGENT_KEY: "done"},
-            "metadata": {AGENT_KEY: {"model_used": MODEL_NAME, "duration_ms": duration, "tokens_used": tokens}},
+            "metadata": {AGENT_KEY: meta},
         }
     except Exception as exc:
         return {
             "agent_statuses": {AGENT_KEY: "error"},
-            "error": str(exc),
+            "error": f"location_analyst: {exc}",
         }

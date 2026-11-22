@@ -1,61 +1,57 @@
-import time
-import asyncio
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
+"""Agent 2 — market analyst.
+
+Produces TAM/SAM/SOM in NIS, typed competitor list, gaps, positioning, citations.
+Uses Claude's native web_search tool for research (replaces DuckDuckGo scraping).
+"""
+from __future__ import annotations
+
+from .client import call_structured
+from .schemas import MarketAnalysis, RefinedIdea
 from .state import FounderState
-from .utils import summarize_text
-from .tools.search import duckduckgo_search
+from .utils import summarize_for_handoff
 
-MODEL_NAME = "gpt-4o-mini"
+CACHED_PREAMBLE = """You are the Market Analyst — agent 2 of the FounderAI pipeline.
 
-SYSTEM_PROMPT = (
-    "You are a market research analyst. Based on the business concept provided, research and analyze:\n\n"
-    "1. MARKET SIZE\n"
-    "   - TAM (Total Addressable Market) — global\n"
-    "   - SAM (Serviceable Addressable Market) — realistic target segment\n"
-    "   - SOM (Serviceable Obtainable Market) — realistic first 2 years\n\n"
-    "2. COMPETITIVE LANDSCAPE\n"
-    "   - Top 5 direct competitors (name, pricing, strengths, weaknesses)\n"
-    "   - Top 3 indirect competitors\n"
-    "   - Market gaps and underserved segments\n\n"
-    "3. MARKET TRENDS\n"
-    "   - 3 macro trends supporting this business\n"
-    "   - 2 risks or headwinds\n\n"
-    "4. POSITIONING OPPORTUNITY\n"
-    "   - Recommended unique angle vs competitors\n\n"
-    "Use tables and bullet points. Be specific with numbers."
-)
+You produce a quantified market analysis for Israeli founders. Numbers are in NIS (₪) unless the target market is explicitly global.
+
+Rules:
+- `tam_nis`, `sam_nis`, `som_nis` are annual NIS figures. If you cannot estimate, leave them null — do not invent precision you don't have, drop `confidence` instead.
+- `competitors`: at least 3, up to 8. Mix 2–3 direct with 1–2 indirect. Include a weakness for every competitor — the founder needs to know where to attack.
+- `gap_opportunities`: 2–5 specific, actionable openings, not platitudes.
+- `macro_trends`: 2–4 real trends (cite if non-obvious).
+- `risks`: 2–3 headwinds specific to this business, not generic ("economy slows").
+- `positioning`: one tight paragraph on the unique angle vs. competitors.
+- `sources`: cite URLs for any non-obvious claim. If you used no web search, this may be empty.
+- `narrative_md`: 200–400 word markdown summary with 2–3 small tables and tight prose. This is what the user reads.
+- Respond in the user's language (passed in the task instruction).
+"""
 
 
 async def market_analyst_node(state: FounderState) -> dict:
-    start = time.perf_counter()
     try:
-        refined = state.get("refined_idea", state.get("raw_input", ""))
+        idea: RefinedIdea | None = state.get("refined_idea")
         language = state.get("language", "en")
-
-        search_results = await asyncio.to_thread(
-            duckduckgo_search, f"{refined[:200]} market size competitors trends", 4
+        task = (
+            f"User language: {language}.\n\n"
+            f"Refined idea (JSON):\n{summarize_for_handoff(idea, 1200)}\n\n"
+            f"Original user input:\n{state.get('raw_input', '')[:500]}"
         )
-        search_context = "\n".join(f"- {r}" for r in search_results)
-
-        llm = ChatOpenAI(model=MODEL_NAME, temperature=0, max_tokens=1200)
-        response = await llm.ainvoke([
-            SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=(
-                f"Business concept:\n{refined}\n\n"
-                f"Search results:\n{search_context}\n\n"
-                f"Respond in language: {language}"
-            )),
-        ])
-        duration = int((time.perf_counter() - start) * 1000)
-        tokens = response.response_metadata.get("token_usage", {}).get("total_tokens", 0)
+        result, meta = await call_structured(
+            role="sonnet",
+            cached_preamble=CACHED_PREAMBLE,
+            task_instruction=task,
+            user_message="Produce the market analysis.",
+            schema=MarketAnalysis,
+            tool_name="submit_market_analysis",
+            max_tokens=2048,
+        )
         return {
-            "market_analysis": response.content.strip(),
+            "market_analysis": result,
             "agent_statuses": {"market_analyst": "done"},
-            "metadata": {"market_analyst": {"model_used": MODEL_NAME, "duration_ms": duration, "tokens_used": tokens}},
+            "metadata": {"market_analyst": meta},
         }
     except Exception as exc:
         return {
             "agent_statuses": {"market_analyst": "error"},
-            "error": str(exc),
+            "error": f"market_analyst: {exc}",
         }

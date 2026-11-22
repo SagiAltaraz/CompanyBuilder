@@ -1,4 +1,7 @@
-import React, { useCallback } from 'react'
+/**
+ * ReportRenderer — markdown → prose, with copy + print for the final report.
+ */
+import { useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -8,31 +11,24 @@ interface Props {
 }
 
 export default function ReportRenderer({ content, isFinalReport = false }: Props) {
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(content)
-  }, [content])
-
-  const handlePrint = useCallback(() => {
-    window.print()
-  }, [])
+  const handleCopy  = useCallback(() => { navigator.clipboard.writeText(content) }, [content])
+  const handlePrint = useCallback(() => { window.print() }, [])
 
   return (
     <div>
+      <div className="prose max-w-none">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      </div>
       {isFinalReport && (
-        <div className="flex gap-2 mb-5 no-print">
-          <button onClick={handleCopy} className="btn-secondary flex items-center gap-1.5">
-            <span>📋</span> Copy Markdown
+        <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2 no-print">
+          <button type="button" onClick={handleCopy}  className="btn-secondary">
+            Copy markdown
           </button>
-          <button onClick={handlePrint} className="btn-primary flex items-center gap-1.5">
-            <span>📄</span> Download PDF
+          <button type="button" onClick={handlePrint} className="btn-secondary">
+            Print or save PDF
           </button>
         </div>
       )}
-      <div className="prose max-w-none">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {content}
-        </ReactMarkdown>
-      </div>
     </div>
   )
 }

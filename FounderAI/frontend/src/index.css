@@ -2,188 +2,256 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =========================================================================
+   Design tokens — semantic variables so dark mode is just a re-assignment.
+   Light surfaces + ink on light; graphite surfaces + light ink on dark.
+   Every text/bg pair here has been checked for WCAG AA on body text.
+   ========================================================================= */
 @layer base {
-  html {
-    scroll-behavior: smooth;
+  :root {
+    color-scheme: light;
+    --bg:          #FFFFFF;
+    --bg-muted:    #F8FAFC;   /* slate-50 */
+    --bg-raised:   #FFFFFF;
+    --border:      #E2E8F0;   /* slate-200 */
+    --border-strong:#CBD5E1;  /* slate-300 */
+    --text:        #0F172A;   /* slate-900 */
+    --text-muted:  #475569;   /* slate-600 — 7.2:1 on white */
+    --text-subtle: #64748B;   /* slate-500 — 4.6:1 on white (AA body) */
+    --primary:     #2563EB;
+    --primary-hover:#1D4ED8;
+    --ring:        0 0 0 3px rgb(37 99 235 / 0.35);
   }
+  html.dark {
+    color-scheme: dark;
+    --bg:          #0F172A;
+    --bg-muted:    #1E293B;
+    --bg-raised:   #1E293B;
+    --border:      #334155;
+    --border-strong:#475569;
+    --text:        #F1F5F9;
+    --text-muted:  #CBD5E1;
+    --text-subtle: #94A3B8;   /* 4.6:1 on #0F172A */
+    --primary:     #60A5FA;
+    --primary-hover:#93C5FD;
+    --ring:        0 0 0 3px rgb(147 197 253 / 0.35);
+  }
+
+  html { scroll-behavior: smooth; }
   body {
-    @apply bg-slate-50 text-ink antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, Heebo, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
   }
-  ::selection {
-    @apply bg-brand-200 text-ink;
+  /* RTL: swap families so Heebo gets priority for Hebrew. */
+  html[lang="he"] body { font-family: Heebo, Inter, system-ui, sans-serif; }
+
+  /* Accessible focus ring — browser default is poor on light backgrounds. */
+  *:focus { outline: none; }
+  *:focus-visible { box-shadow: var(--ring); border-radius: 6px; }
+
+  /* Skip link for keyboard users. */
+  .skip-link {
+    position: absolute; left: -9999px; top: 0;
+    background: var(--primary); color: #fff;
+    padding: 10px 16px; border-radius: 0 0 8px 0;
+    font-weight: 600; z-index: 100;
+  }
+  .skip-link:focus { left: 0; }
+
+  /* Respect reduced-motion preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+    html { scroll-behavior: auto; }
   }
 
-  /* Refined scrollbar */
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
+  ::selection { background: #BFDBFE; color: #0F172A; }
+  html.dark ::selection { background: #1D4ED8; color: #F1F5F9; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-slate-200 rounded-full border-2 border-solid border-transparent bg-clip-padding;
-  }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-slate-300; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 }
 
+/* =========================================================================
+   Components
+   ========================================================================= */
 @layer components {
-  /* ── Brand mark ── */
-  .brand-mark {
-    @apply relative w-9 h-9 rounded-xl bg-brand-gradient shadow-glow-brand flex items-center justify-center font-display font-extrabold text-white text-base;
-  }
-  .brand-mark::after {
-    content: '';
-    @apply absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-gold-400 ring-2 ring-white;
-  }
 
-  /* ── Gradient text ── */
-  .text-gradient {
-    @apply bg-brand-gradient bg-clip-text text-transparent;
+  /* ── Logo wordmark (not a decorative monogram) ───────────────────── */
+  .logo {
+    @apply inline-flex items-center gap-2 text-slate-900 dark:text-slate-100;
   }
-  .text-gradient-gold {
-    @apply bg-gold-gradient bg-clip-text text-transparent;
+  .logo-mark {
+    @apply inline-flex items-center justify-center w-7 h-7 rounded-md bg-primary-600 text-white font-bold text-sm;
   }
+  .logo-text { @apply font-semibold text-[15px]; }
 
-  /* ── Background motifs ── */
-  .bg-blueprint {
-    background-image:
-      linear-gradient(to right, rgba(79,70,229,0.07) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(79,70,229,0.07) 1px, transparent 1px);
-    background-size: 36px 36px;
+  /* ── Buttons ─────────────────────────────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-medium text-[14px] px-4 py-2.5 rounded-lg transition-colors select-none;
+    min-height: 40px;
   }
-  .bg-mesh {
-    background:
-      radial-gradient(60% 60% at 12% 8%,  rgba(124, 58, 237, 0.18) 0%, transparent 60%),
-      radial-gradient(50% 50% at 92% 15%, rgba(251, 191, 36, 0.16) 0%, transparent 60%),
-      radial-gradient(70% 60% at 82% 90%, rgba(79, 70, 229, 0.18) 0%, transparent 60%),
-      #F8FAFF;
-  }
-
-  /* ── Floating decorative blobs ── */
-  .blob {
-    @apply pointer-events-none absolute rounded-full mix-blend-multiply blur-3xl opacity-50;
-  }
-
-  /* ── Markdown tables ── */
-  .prose table {
-    @apply w-full border-collapse text-sm my-4 overflow-hidden rounded-lg;
-  }
-  .prose thead {
-    @apply bg-brand-50;
-  }
-  .prose th {
-    @apply px-4 py-2.5 text-left font-semibold text-brand-800 border border-brand-100 text-xs uppercase tracking-wide;
-  }
-  .prose td {
-    @apply px-4 py-2.5 border border-slate-100 text-slate-700;
-  }
-  .prose tbody tr:nth-child(even) {
-    @apply bg-slate-50;
-  }
-  .prose tbody tr:hover {
-    @apply bg-brand-50/50 transition-colors;
-  }
-
-  /* ── Headings ── */
-  .prose h1 {
-    @apply font-display text-2xl font-extrabold text-ink mt-8 mb-3 tracking-tight;
-  }
-  .prose h2 {
-    @apply font-display text-lg font-bold text-brand-700 mt-7 mb-3 pb-2 border-b border-brand-100 tracking-tight;
-  }
-  .prose h3 {
-    @apply text-base font-semibold text-ink-soft mt-5 mb-2;
-  }
-
-  /* ── Body text ── */
-  .prose p {
-    @apply text-slate-700 leading-relaxed mb-3;
-  }
-  .prose ul {
-    @apply list-disc list-inside text-slate-700 space-y-1.5 mb-3 ml-2;
-  }
-  .prose ol {
-    @apply list-decimal list-inside text-slate-700 space-y-1.5 mb-3 ml-2;
-  }
-  .prose li { @apply text-slate-700 leading-relaxed; }
-  .prose strong { @apply text-ink font-semibold; }
-  .prose code {
-    @apply bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded text-sm font-mono;
-  }
-  .prose blockquote {
-    @apply border-l-4 border-gold-400 pl-4 italic text-slate-500 my-3;
-  }
-  .prose hr { @apply border-slate-200 my-6; }
-  .prose em { @apply text-slate-500 text-sm; }
-
-  /* ── Cards ── */
-  .card {
-    @apply bg-white border border-slate-200/70 rounded-2xl shadow-lift;
-  }
-  .card-header {
-    @apply px-6 py-4 border-b border-slate-100 flex items-center gap-2;
-  }
-  .card-highlight {
-    @apply relative bg-white rounded-2xl shadow-glow-brand;
-    background-image: linear-gradient(white, white),
-      linear-gradient(135deg, #4F46E5, #7C3AED, #FBBF24);
-    background-origin: border-box;
-    background-clip: padding-box, border-box;
-    border: 1.5px solid transparent;
-  }
-
-  /* ── Buttons ── */
+  .btn-lg { @apply text-[15px] px-5 py-3; min-height: 48px; }
   .btn-primary {
-    @apply relative inline-flex items-center justify-center gap-2 bg-brand-gradient hover:brightness-110 text-white font-semibold px-5 py-2.5 rounded-xl transition-all text-sm shadow-glow-brand active:scale-[0.98];
+    @apply btn bg-primary-600 text-white hover:bg-primary-700;
   }
+  html.dark .btn-primary { @apply bg-primary-500 hover:bg-primary-400 text-slate-900; }
+  .btn-primary:disabled { @apply bg-slate-300 text-slate-500 cursor-not-allowed; }
+  html.dark .btn-primary:disabled { @apply bg-slate-700 text-slate-500; }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-ink-soft font-medium px-4 py-2 rounded-xl border border-slate-200 transition-colors text-sm;
+    @apply btn border border-slate-300 text-slate-700 bg-white hover:bg-slate-50;
   }
+  html.dark .btn-secondary { @apply border-slate-600 text-slate-200 bg-slate-800 hover:bg-slate-700; }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-1 text-slate-500 hover:text-brand-600 text-xs font-medium transition-colors;
+    @apply btn text-slate-600 hover:text-slate-900 hover:bg-slate-100;
+    min-height: 36px; padding: 6px 10px;
   }
+  html.dark .btn-ghost { @apply text-slate-300 hover:text-white hover:bg-slate-800; }
 
-  /* ── Chips / Pills ── */
-  .chip {
-    @apply inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-all;
+  /* ── Cards ──────────────────────────────────────────────────────── */
+  .card {
+    @apply bg-white border border-slate-200 rounded-xl shadow-card;
   }
-  .chip-brand {
-    @apply chip bg-brand-50 text-brand-700 border-brand-100;
+  html.dark .card { @apply bg-slate-800 border-slate-700 shadow-none; }
+  .card-highlight {
+    @apply border-primary-200 ring-1 ring-primary-100;
   }
-  .chip-gold {
-    @apply chip bg-gold-400/10 text-gold-600 border-gold-400/30;
-  }
-  .chip-success {
-    @apply chip bg-emerald-50 text-emerald-700 border-emerald-100;
-  }
+  html.dark .card-highlight { @apply border-primary-500/40 ring-primary-500/20; }
 
-  /* ── Agent status pulse ── */
-  .pulse-running {
-    animation: pulse-indigo 1.6s ease-in-out infinite;
+  /* ── Form controls ──────────────────────────────────────────────── */
+  .field { @apply block; }
+  .field-label {
+    @apply block text-[14px] font-medium text-slate-900 mb-1.5;
   }
-  @keyframes pulse-indigo {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5); }
-    50%      { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+  html.dark .field-label { @apply text-slate-100; }
+  .field-help {
+    @apply block text-[13px] text-slate-500 mt-1.5;
   }
+  html.dark .field-help { @apply text-slate-400; }
+  .field-required::after { content: '*'; color: #DC2626; margin-left: 2px; }
 
-  /* Shimmer for loading text */
-  .shimmer-text {
-    background: linear-gradient(90deg, #94A3B8 0%, #0B1437 50%, #94A3B8 100%);
-    background-size: 200% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: shimmer 2.5s linear infinite;
+  .input,
+  .textarea {
+    @apply w-full bg-white border border-slate-300 rounded-lg px-3.5 py-2.5 text-[15px] text-slate-900 placeholder:text-slate-400 transition-colors;
+    min-height: 44px;
   }
+  .input:hover, .textarea:hover { @apply border-slate-400; }
+  .input:focus, .textarea:focus { @apply border-primary-600; }
+  html.dark .input, html.dark .textarea { @apply bg-slate-900 border-slate-600 text-slate-100 placeholder:text-slate-500; }
+  html.dark .input:hover, html.dark .textarea:hover { @apply border-slate-500; }
+  html.dark .input:focus, html.dark .textarea:focus { @apply border-primary-400; }
+
+  /* Radio-group as pill choices — for a11y, these ARE native inputs under the hood. */
+  .choice-grid { @apply grid grid-cols-2 sm:grid-cols-4 gap-2; }
+  .choice {
+    @apply relative flex flex-col items-start justify-center text-left border border-slate-300 rounded-lg px-3 py-2.5 cursor-pointer transition-colors bg-white;
+    min-height: 60px;
+  }
+  .choice:hover { @apply border-slate-400 bg-slate-50; }
+  html.dark .choice { @apply border-slate-600 bg-slate-800; }
+  html.dark .choice:hover { @apply border-slate-500 bg-slate-700; }
+  .choice input { @apply absolute opacity-0 inset-0 w-full h-full cursor-pointer; }
+  .choice input:checked + .choice-body { @apply text-primary-700; }
+  html.dark .choice input:checked + .choice-body { @apply text-primary-300; }
+  .choice:has(input:checked) { @apply border-primary-600 bg-primary-50 ring-2 ring-primary-600/30; }
+  html.dark .choice:has(input:checked) { @apply border-primary-400 bg-primary-500/10 ring-primary-400/40; }
+  .choice-title { @apply text-[14px] font-medium; }
+  .choice-sub   { @apply text-[12px] text-slate-500 mt-0.5; }
+  html.dark .choice-sub { @apply text-slate-400; }
+
+  /* ── Steps / stepper ────────────────────────────────────────────── */
+  .step-row {
+    @apply flex items-start gap-3 py-3;
+  }
+  .step-dot {
+    @apply flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-semibold flex-none transition-colors;
+  }
+  .step-dot.waiting  { @apply bg-slate-100 text-slate-500 border border-slate-200; }
+  html.dark .step-dot.waiting { @apply bg-slate-800 text-slate-500 border-slate-700; }
+  .step-dot.running  { @apply bg-primary-600 text-white; }
+  html.dark .step-dot.running { @apply bg-primary-500 text-slate-900; }
+  .step-dot.done     { @apply bg-success-600 text-white; }
+  .step-dot.error    { @apply bg-danger-600 text-white; }
+
+  /* ── Section headings in the blueprint ──────────────────────────── */
+  .section-eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-wide text-primary-700;
+  }
+  html.dark .section-eyebrow { @apply text-primary-300; }
+  .section-title {
+    @apply text-[20px] font-semibold text-slate-900 leading-snug;
+  }
+  html.dark .section-title { @apply text-slate-100; }
+
+  /* ── Prose (markdown rendering) ─────────────────────────────────── */
+  .prose {
+    @apply text-[15px] text-slate-700 leading-[1.7];
+  }
+  html.dark .prose { @apply text-slate-300; }
+  .prose h1 { @apply text-[24px] font-semibold text-slate-900 mt-8 mb-3 leading-tight; }
+  html.dark .prose h1 { @apply text-slate-100; }
+  .prose h2 { @apply text-[19px] font-semibold text-slate-900 mt-8 mb-3 leading-snug; }
+  html.dark .prose h2 { @apply text-slate-100; }
+  .prose h3 { @apply text-[16px] font-semibold text-slate-900 mt-5 mb-2; }
+  html.dark .prose h3 { @apply text-slate-100; }
+  .prose p  { @apply mb-4; }
+  .prose ul { @apply list-disc pl-5 mb-4 space-y-1.5; }
+  .prose ol { @apply list-decimal pl-5 mb-4 space-y-1.5; }
+  .prose strong { @apply font-semibold text-slate-900; }
+  html.dark .prose strong { @apply text-slate-100; }
+  .prose em { @apply italic; }
+  .prose a  { @apply text-primary-700 underline underline-offset-2; }
+  html.dark .prose a { @apply text-primary-400; }
+  .prose code { @apply font-mono text-[13px] bg-slate-100 px-1.5 py-0.5 rounded; }
+  html.dark .prose code { @apply bg-slate-800; }
+  .prose blockquote { @apply border-l-4 border-primary-200 bg-primary-50/50 pl-4 py-2 italic text-slate-700 my-4; }
+  html.dark .prose blockquote { @apply border-primary-500/40 bg-primary-500/5 text-slate-300; }
+  .prose hr { @apply border-slate-200 my-6; }
+  html.dark .prose hr { @apply border-slate-700; }
+  .prose table { @apply w-full text-[14px] my-4 border border-slate-200 rounded-lg overflow-hidden; }
+  html.dark .prose table { @apply border-slate-700; }
+  .prose thead { @apply bg-slate-50; }
+  html.dark .prose thead { @apply bg-slate-800; }
+  .prose th { @apply text-left font-semibold text-slate-700 px-3 py-2 text-[13px] border-b border-slate-200; }
+  html.dark .prose th { @apply text-slate-200 border-slate-700; }
+  .prose td { @apply px-3 py-2 border-b border-slate-100 align-top; }
+  html.dark .prose td { @apply border-slate-800; }
+  .prose tbody tr:nth-child(even) { @apply bg-slate-50/50; }
+  html.dark .prose tbody tr:nth-child(even) { @apply bg-slate-800/40; }
+
+  /* ── Status badges ──────────────────────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center gap-1 text-[12px] font-medium px-2 py-0.5 rounded-full border;
+  }
+  .badge-info    { @apply bg-primary-50 text-primary-700 border-primary-200; }
+  html.dark .badge-info { @apply bg-primary-500/15 text-primary-300 border-primary-500/30; }
+  .badge-success { @apply bg-success-500/10 text-success-700 border-success-500/30; }
+  html.dark .badge-success { @apply text-success-500; }
+  .badge-warning { @apply bg-warning-500/10 text-warning-700 border-warning-500/30; }
+  .badge-danger  { @apply bg-danger-500/10 text-danger-700 border-danger-500/30; }
+  html.dark .badge-danger { @apply text-danger-500; }
+
+  /* ── Progress bar ───────────────────────────────────────────────── */
+  .progress {
+    @apply h-1.5 w-full rounded-full bg-slate-100 overflow-hidden;
+  }
+  html.dark .progress { @apply bg-slate-800; }
+  .progress-bar {
+    @apply h-full bg-primary-600 transition-[width] duration-500 ease-out;
+  }
+  html.dark .progress-bar { @apply bg-primary-400; }
 }
 
-/* Print styles for PDF export */
+/* Print: clean document output (no shadows, no decoration). */
 @media print {
   .no-print { display: none !important; }
-  body { background: white; }
-  .card,
-  .card-highlight { border: 1px solid #e5e7eb; box-shadow: none; background: white; }
-  .bg-mesh, .bg-blueprint { background: white !important; }
+  body { background: white; color: black; }
+  .card { border: 1px solid #e5e7eb; box-shadow: none; }
 }

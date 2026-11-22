@@ -1,29 +1,32 @@
-import re
-from datetime import datetime
-from typing import Any, Dict
+"""Small utilities shared across agents."""
+from __future__ import annotations
 
-from .state import FounderState
+import re
 
 
 def detect_language(text: str) -> str:
-    hebrew_chars = sum(1 for c in text if '\u05d0' <= c <= '\u05ea')
+    """Heuristic: 'he' if ≥15% of characters fall in the Hebrew block, else 'en'."""
+    if not text:
+        return "en"
+    hebrew_chars = sum(1 for c in text if 'א' <= c <= 'ת')
     return "he" if hebrew_chars > len(text) * 0.15 else "en"
 
 
-def record_agent_metadata(state: FounderState, agent_name: str, model: str, duration_ms: int, tokens_used: int = 0) -> None:
-    metadata = state.get("metadata", {})
-    metadata.setdefault(agent_name, {})
-    metadata[agent_name]["model_used"] = model
-    metadata[agent_name]["duration_ms"] = int(duration_ms)
-    metadata[agent_name]["tokens_used"] = int(tokens_used)
-    state["metadata"] = metadata
+def summarize_for_handoff(obj, max_chars: int = 1500) -> str:
+    """Compact JSON-ish rendering of a typed agent output for downstream prompts.
 
-
-def summarize_text(text: str, max_chars: int = 1500) -> str:
-    if len(text) <= max_chars:
-        return text
-    snippet = text[:max_chars]
-    return snippet.rsplit("\n", 1)[0] if "\n" in snippet else snippet
+    We feed downstream agents the typed upstream object, serialized compactly.
+    This is what replaces the prior approach of pasting whole markdown blocks.
+    """
+    if obj is None:
+        return "(none)"
+    if hasattr(obj, "model_dump_json"):
+        s = obj.model_dump_json(exclude_none=True)
+    elif isinstance(obj, str):
+        s = obj
+    else:
+        s = str(obj)
+    return s if len(s) <= max_chars else s[:max_chars - 1] + "…"
 
 
 def normalize_text(text: str) -> str:

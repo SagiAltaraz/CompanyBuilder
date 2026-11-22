@@ -1,46 +1,54 @@
-import time
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
+"""Agent 1 — idea refiner.
+
+Reads raw user input, returns a typed RefinedIdea: concept, industry, model,
+target market, stage, detected language, confidence, open questions.
+"""
+from __future__ import annotations
+
+from .client import call_structured
+from .schemas import RefinedIdea
 from .state import FounderState
 from .utils import detect_language
 
-MODEL_NAME = "gpt-4o-mini"
+CACHED_PREAMBLE = """You are the Idea Refiner — the first agent in the FounderAI pipeline for Israeli founders.
 
-SYSTEM_PROMPT = (
-    "You are a business idea clarifier. Extract the following from the user's input:\n"
-    "- Business concept (1 sentence)\n"
-    "- Industry/sector\n"
-    "- Business model: B2B, B2C, B2B2C, or marketplace\n"
-    "- Product type: SaaS, service agency, physical product, marketplace, or app\n"
-    "- Target market: Israel, global, or specific region\n"
-    "- Stage: idea, MVP, early revenue, or scaling\n\n"
-    "Also detect the input language: return 'he' for Hebrew, 'en' for English.\n"
-    "Respond in the SAME language as the input.\n"
-    "Return as structured text with clear labels, not JSON."
-)
+Your single job: take raw user input (one sentence to a paragraph, Hebrew or English) and classify it into a strict structured form so every downstream agent has unambiguous inputs.
+
+Rules:
+- Pick exactly ONE enum value for each field. If the input is genuinely ambiguous, pick the most likely value and lower `confidence`.
+- `concept` is ONE sentence, the clearest reading of what the business is.
+- `industry` is a short noun phrase (e.g., "F&B mobile cart", "digital marketing for SMB"). Not a sector code.
+- `open_questions` are the 1–4 things you'd ask the founder next to make the plan sharper. Leave empty only when the input is already specific.
+- `narrative_md` is a 3–5 line markdown summary: the concept, the model, the market, and the top open question. This is what the user reads.
+- Respond in the SAME language as the input (detected and returned as `language`).
+"""
 
 
 async def idea_refiner_node(state: FounderState) -> dict:
-    start = time.perf_counter()
     try:
-        language = detect_language(state["raw_input"])
-        llm = ChatOpenAI(model=MODEL_NAME, temperature=0, max_tokens=800)
-        response = await llm.ainvoke([
-            SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=state["raw_input"]),
-        ])
-        duration = int((time.perf_counter() - start) * 1000)
-        tokens = response.response_metadata.get("token_usage", {}).get("total_tokens", 0)
+        raw = state["raw_input"]
+        language_hint = detect_language(raw)
+        task = f"Language hint from heuristic: {language_hint}. Trust the hint unless the text is clearly in the other language."
+
+        result, meta = await call_structured(
+            role="haiku",
+            cached_preamble=CACHED_PREAMBLE,
+            task_instruction=task,
+            user_message=raw,
+            schema=RefinedIdea,
+            tool_name="submit_refined_idea",
+            max_tokens=1024,
+        )
         return {
-            "refined_idea": response.content.strip(),
-            "language": language,
+            "refined_idea": result,
+            "language": result.language,
             "current_agent": "idea_refiner",
             "agent_statuses": {"idea_refiner": "done"},
-            "metadata": {"idea_refiner": {"model_used": MODEL_NAME, "duration_ms": duration, "tokens_used": tokens}},
+            "metadata": {"idea_refiner": meta},
         }
     except Exception as exc:
         return {
             "current_agent": "idea_refiner",
             "agent_statuses": {"idea_refiner": "error"},
-            "error": str(exc),
+            "error": f"idea_refiner: {exc}",
         }
